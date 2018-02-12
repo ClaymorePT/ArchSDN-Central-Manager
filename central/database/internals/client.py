@@ -121,7 +121,7 @@ def info(location=None, ipv4=None, ipv6=None):
     with closing(GetConnector().cursor()) as db_cursor:
         if location:
             controller = location[0]
-            client_id = location[0]
+            client_id = location[1]
 
             db_cursor.execute("SELECT ipv4, ipv6, name, registration_date FROM clients_view WHERE "
                               "(clients_view.id == ?) AND (clients_view.controller == ?)", (client_id, controller.bytes))

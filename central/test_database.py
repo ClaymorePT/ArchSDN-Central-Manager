@@ -1,6 +1,7 @@
 import unittest
 import logging
 import sys
+import asyncio
 import time
 import uuid
 from ipaddress import IPv4Network, IPv6Network, IPv4Address, IPv6Address
@@ -12,19 +13,22 @@ from helpers import custom_logging_callback
 import database
 
 sys.excepthook = (lambda tp, val, tb: custom_logging_callback(logging.getLogger(), logging.ERROR, tp, val, tb))
-
+loop = asyncio.get_event_loop()
 
 class DefaultInitAndClose(unittest.TestCase):
 
     def setUp(self):
-        database.initialise(location=database_location)
+        fut = database.initialise(location=database_location)
+        loop.run_until_complete(fut)
 
     def tearDown(self):
-        database.close()
-
+        fut = database.close()
+        loop.run_until_complete(fut)
 
     def test_get_default_info(self):
-        info = database.info()
+        fut = database.info()
+        loop.run_until_complete(fut)
+        info = fut.result()
         self.assertIsInstance(info, dict)
         self.assertIn("ipv4_network", info)
         self.assertIn("ipv6_network", info)
@@ -48,21 +52,25 @@ class DefaultInitAndClose(unittest.TestCase):
 
 class ControllersTests(unittest.TestCase):
     def setUp(self):
-        print("setUp")
-        database.initialise(location=database_location)
+        fut = database.initialise(location=database_location)
+        loop.run_until_complete(fut)
         self.uuid = uuid.UUID(int=1)
         self.ipv4_info = (IPv4Address("192.168.1.1"), 12345)
         self.ipv6_info = (IPv6Address(1), 12345)
 
 
     def tearDown(self):
-        print("tearDown")
-        database.close()
+        fut = database.close()
+        loop.run_until_complete(fut)
 
 
     def test_register_controller(self):
-        database.register_controller(self.uuid, ipv4_info=self.ipv4_info)
-        info = database.query_controller_info(self.uuid)
+        fut = database.register_controller(self.uuid, ipv4_info=self.ipv4_info)
+        loop.run_until_complete(fut)
+        fut = database.query_controller_info(self.uuid)
+        loop.run_until_complete(fut)
+        info = fut.result()
+
         self.assertIsInstance(info, dict)
         self.assertIn("ipv4", info)
         self.assertIn("ipv4_port", info)
@@ -86,8 +94,12 @@ class ControllersTests(unittest.TestCase):
         self.assertLessEqual(info['registration_date'], time.localtime(time.time()))
 
     def test_register_controller_ipv6(self):
-        database.register_controller(self.uuid, ipv6_info=self.ipv6_info)
-        info = database.query_controller_info(self.uuid)
+        fut = database.register_controller(self.uuid, ipv6_info=self.ipv6_info)
+        loop.run_until_complete(fut)
+        fut = database.query_controller_info(self.uuid)
+        loop.run_until_complete(fut)
+        info = fut.result()
+
         self.assertIn("ipv4", info)
         self.assertIn("ipv4_port", info)
         self.assertIn("ipv6", info)
@@ -110,8 +122,12 @@ class ControllersTests(unittest.TestCase):
         self.assertLessEqual(info['registration_date'], time.localtime(time.time()))
 
     def test_register_controller_ipv4_and_ipv6(self):
-        database.register_controller(self.uuid, ipv4_info=self.ipv4_info, ipv6_info=self.ipv6_info)
-        info = database.query_controller_info(self.uuid)
+        fut = database.register_controller(self.uuid, ipv4_info=self.ipv4_info, ipv6_info=self.ipv6_info)
+        loop.run_until_complete(fut)
+        fut = database.query_controller_info(self.uuid)
+        loop.run_until_complete(fut)
+        info = fut.result()
+
         self.assertIn("ipv4", info)
         self.assertIn("ipv4_port", info)
         self.assertIn("ipv6", info)
@@ -139,52 +155,85 @@ class ControllersTests(unittest.TestCase):
 
     def test_register_controller_no_ip(self):
         with self.assertRaises(AssertionError):
-            database.register_controller(self.uuid)
+            fut = database.register_controller(self.uuid)
+            loop.run_until_complete(fut)
+            fut.result()
 
     def test_double_registration(self):
-        database.register_controller(self.uuid, ipv4_info=self.ipv4_info, ipv6_info=self.ipv6_info)
+        fut = database.register_controller(self.uuid, ipv4_info=self.ipv4_info, ipv6_info=self.ipv6_info)
+        loop.run_until_complete(fut)
+
         with self.assertRaises(database.IPv4InfoAlreadyRegistered):
-            database.register_controller(uuid.UUID(int=2), ipv4_info=self.ipv4_info, ipv6_info=(IPv6Address(2), 1))
+            fut = database.register_controller(uuid.UUID(int=2), ipv4_info=self.ipv4_info, ipv6_info=(IPv6Address(2), 1))
+            loop.run_until_complete(fut)
+            fut.result()
         with self.assertRaises(database.IPv6InfoAlreadyRegistered):
-            database.register_controller(uuid.UUID(int=2), ipv4_info=(IPv4Address("192.168.1.2"), 12345),
+            fut = database.register_controller(uuid.UUID(int=2), ipv4_info=(IPv4Address("192.168.1.2"), 12345),
                                          ipv6_info=self.ipv6_info)
+            loop.run_until_complete(fut)
+            fut.result()
         with self.assertRaises(database.ControllerAlreadyRegistered):
-            database.register_controller(self.uuid, ipv4_info=(IPv4Address("192.168.1.2"), 12345),
+            fut = database.register_controller(self.uuid, ipv4_info=(IPv4Address("192.168.1.2"), 12345),
                                          ipv6_info=(IPv6Address(2), 1))
+            loop.run_until_complete(fut)
+            fut.result()
 
     def test_remove_controller(self):
-        database.register_controller(self.uuid, ipv4_info=self.ipv4_info, ipv6_info=self.ipv6_info)
-        self.assertIsNone(database.remove_controller(self.uuid))
+        fut = database.register_controller(self.uuid, ipv4_info=self.ipv4_info, ipv6_info=self.ipv6_info)
+        loop.run_until_complete(fut)
+
+        fut = database.remove_controller(self.uuid)
+        loop.run_until_complete(fut)
+
+        self.assertIsNone(fut.result())
         with self.assertRaises(database.ControllerNotRegistered):
-            database.query_controller_info(self.uuid)
+            fut = database.query_controller_info(self.uuid)
+            loop.run_until_complete(fut)
+            fut.result()
         with self.assertRaises(database.ControllerNotRegistered):
-            database.remove_controller(self.uuid)
+            fut = database.remove_controller(self.uuid)
+            loop.run_until_complete(fut)
+            fut.result()
 
 
 class ClientsTests(unittest.TestCase):
     def setUp(self):
         self.controller_uuid = uuid.UUID(int=1)
         self.client_id = 100
-        database.initialise(location=database_location, ipv4_network=IPv4Network("10.0.0.0"))
-        database.register_controller(uuid.UUID(int=1), ipv4_info=(IPv4Address("192.168.1.1"), 12345),
+        fut = database.initialise(location=database_location, ipv4_network=IPv4Network("10.0.0.0"))
+        loop.run_until_complete(fut)
+        fut = database.register_controller(uuid.UUID(int=1), ipv4_info=(IPv4Address("192.168.1.1"), 12345),
                                      ipv6_info=(IPv6Address(1), 12345))
+        loop.run_until_complete(fut)
+
+
 
     def tearDown(self):
-        database.close()
+        fut = database.close()
+        loop.run_until_complete(fut)
 
     def test_register_client(self):
-        (ipv4, ipv6, name) = database.register_client(self.client_id, self.controller_uuid)
+        fut = database.register_client(self.client_id, self.controller_uuid)
+        loop.run_until_complete(fut)
+        (ipv4, ipv6, name) = fut.result()
+
         self.assertEqual(ipv4, IPv4Address("10.0.0.2"))
         self.assertEqual(ipv6, IPv6Address('fd61:7263:6873:646e::2'))
 
     def test_double_registration(self):
-        database.register_client(self.client_id, self.controller_uuid)
+        fut = database.register_client(self.client_id, self.controller_uuid)
+        loop.run_until_complete(fut)
         with self.assertRaises(database.ClientAlreadyRegistered):
-            database.register_client(self.client_id, self.controller_uuid)
+            fut = database.register_client(self.client_id, self.controller_uuid)
+            loop.run_until_complete(fut)
+            fut.result()
 
     def test_query_info(self):
-        database.register_client(self.client_id, self.controller_uuid)
-        info = database.query_client_info(self.client_id, self.controller_uuid)
+        fut = database.register_client(self.client_id, self.controller_uuid)
+        loop.run_until_complete(fut)
+        fut = database.query_client_info((self.controller_uuid, self.client_id))
+        loop.run_until_complete(fut)
+        info = fut.result()
         self.assertIn("ipv4", info)
         self.assertIn("ipv6", info)
         self.assertIn("name", info)
@@ -196,13 +245,22 @@ class ClientsTests(unittest.TestCase):
         self.assertLessEqual(info['registration_date'], time.localtime(time.time()))
 
     def test_remove_client(self):
-        database.register_client(self.client_id, self.controller_uuid)
-        self.assertIsNone(database.remove_client(self.client_id, self.controller_uuid))
+        fut = database.register_client(self.client_id, self.controller_uuid)
+        loop.run_until_complete(fut)
+        fut = database.remove_client(self.client_id, self.controller_uuid)
+        loop.run_until_complete(fut)
+        self.assertIsNone(fut.result())
         with self.assertRaises(database.ClientNotRegistered):
-            database.remove_client(self.client_id, self.controller_uuid)
+            fut = database.remove_client(self.client_id, self.controller_uuid)
+            loop.run_until_complete(fut)
+            fut.result()
 
     def test_remove_controller_and_associated_clients(self):
-        self.assertIsNone(database.remove_controller(self.controller_uuid))
+        fut = database.remove_controller(self.controller_uuid)
+        loop.run_until_complete(fut)
+        self.assertIsNone(fut.result())
         with self.assertRaises(database.ControllerNotRegistered):
-            database.remove_client(self.client_id, self.controller_uuid)
+            fut = database.remove_client(self.client_id, self.controller_uuid)
+            loop.run_until_complete(fut)
+            fut.result()
 
