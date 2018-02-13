@@ -56,6 +56,12 @@ class RequestMessage(BaseMessage):
     pass
 
 
+class ReplyMessage(BaseMessage):
+    '''
+        Abstract Base Message for Replies
+    '''
+    pass
+
 ########################
 ###  Error Messages  ###
 ########################
@@ -105,41 +111,41 @@ class REQ_CentralNetworkPolicies(REQ_WithoutState):
     pass
 
 
-# class REQ_Register_Controller(RequestMessage):
-#     '''
-#         Message used by controllers to register themselves at the central manager.
-#         Attributes:
-#             - Controller ID - UUID
-#             - Controller IPv4 Info Tuple
-#               - IPv4
-#               - Port
-#             - Controller IPv6 Info Tuple
-#               - IPv6
-#               - Port
-#     '''
-#
-#     def __init__(self, controller_id, ipv4_info=None, ipv6_info=None):
-#         assert isinstance(controller_id, UUID), "uuid is not a uuid.UUID object instance"
-#         assert not ((ipv4_info is None) and (
-#                     ipv6_info is None)), "ipv4_info and ipv6_info cannot be null at the same time"
-#         assert ipv4_info(ipv4_info) or ipv4_info is None, "ipv4_info is invalid"
-#         assert ipv6_info(ipv6_info) or ipv6_info is None, "ipv6_info is invalid"
-#
-#         self.__controller_id = controller_id
-#         self.__ipv4_info = ipv4_info
-#         self.__ipv6_info = ipv6_info
-#
-#     def __getstate__(self):
-#         return (
-#             self.__controller_id.bytes,
-#             (self.__ipv4_info[0].packed, self.__ipv4_info[1]) if self.__ipv4_info != None else None,
-#             (self.__ipv6_info[0].packed, self.__ipv6_info[1]) if self.__ipv6_info != None else None
-#         )
-#
-#     def __setstate__(self, state):
-#         self.__controller_id = UUID(bytes=state[0])
-#         self.__ipv4_info = (IPv4Address(state[1][0]), state[1][1]) if state[1] != None else None
-#         self.__ipv6_info = (IPv6Address(state[2][0]), state[2][1]) if state[2] != None else None
+class REQ_Register_Controller(RequestMessage):
+    '''
+        Message used by controllers to register themselves at the central manager.
+        Attributes:
+            - Controller ID - UUID
+            - Controller IPv4 Info Tuple
+              - IPv4
+              - Port
+            - Controller IPv6 Info Tuple
+              - IPv6
+              - Port
+    '''
+
+    def __init__(self, controller_id, ipv4_info=None, ipv6_info=None):
+        assert isinstance(controller_id, UUID), "uuid is not a uuid.UUID object instance"
+        assert not ((ipv4_info is None) and (
+                    ipv6_info is None)), "ipv4_info and ipv6_info cannot be null at the same time"
+        assert ipv4_info(ipv4_info) or ipv4_info is None, "ipv4_info is invalid"
+        assert ipv6_info(ipv6_info) or ipv6_info is None, "ipv6_info is invalid"
+
+        self.controller_id = controller_id
+        self.ipv4_info = ipv4_info
+        self.ipv6_info = ipv6_info
+
+    def __getstate__(self):
+        return (
+            self.controller_id.bytes,
+            (self.ipv4_info[0].packed, self.ipv4_info[1]) if self.ipv4_info != None else None,
+            (self.ipv6_info[0].packed, self.ipv6_info[1]) if self.ipv6_info != None else None
+        )
+
+    def __setstate__(self, state):
+        self.controller_id = UUID(bytes=state[0])
+        self.ipv4_info = (IPv4Address(state[1][0]), state[1][1]) if state[1] != None else None
+        self.ipv6_info = (IPv6Address(state[2][0]), state[2][1]) if state[2] != None else None
 
 
 # class REQ_Query_Controller_Info(BaseMessage):
@@ -231,6 +237,17 @@ class REQ_CentralNetworkPolicies(REQ_WithoutState):
 ###  Reply Messages  ###
 ########################
 
+class RPL_WithoutState(ReplyMessage):
+    '''
+        Base Message for Replies with no state
+    '''
+    def __getstate__(self):
+        return False
+
+    def __setstate__(self, s):
+        pass
+
+
 class RPL_LocalTime(BaseMessage):
     '''
         Message used by the central to reply the local time.
@@ -277,7 +294,7 @@ class RPL_CentralNetworkPolicies(BaseMessage):
         self.registration_date = state[7]
 
 
-class RPL_Success(BaseMessage):
+class RPL_Success(RPL_WithoutState):
     '''
         Message used by controllers to register themselves at the central manager.
         Attributes:

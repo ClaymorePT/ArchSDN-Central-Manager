@@ -14,7 +14,8 @@ from helpers import logger_module_name, custom_logging_callback
 from zmq_messages import BaseMessage, \
 RPL_Error, RPL_Success, \
     REQ_LocalTime, RPL_LocalTime, \
-    REQ_CentralNetworkPolicies, RPL_CentralNetworkPolicies
+    REQ_CentralNetworkPolicies, RPL_CentralNetworkPolicies, \
+    REQ_Register_Controller
 
 
 # Tell asyncio to use zmq's eventloop (necessary if pyzmq is < than 17)
@@ -46,35 +47,26 @@ def zmq_context_initialize(ip, port):
 
         while (True):
             try:
-                msg = pickle.loads(await socket.recv())  # waits for msg to be ready
-                __log.debug("msg received: {:s}".format(str(msg)))
+                msg = pickle.loads(blosc.decompress(await socket.recv(), as_bytearray=True))  # waits for msg to be ready
+                __log.debug("Message received: {:s}".format(str(msg)))
                 if isinstance(msg, BaseMessage):
                     reply = await __process_request(msg)
-                    await socket.send(pickle.dumps(reply))
+                    await socket.send(blosc.compress(pickle.dumps(reply)))
                 else:
                     error_str = "Invalid message received: {:s}. Closing socket...".format(repr(msg))
                     __log.error(error_str)
-                    await socket.send(pickle.dumps(RPL_Error(error_str)))
+                    await socket.send(blosc.compress(pickle.dumps(RPL_Error(error_str))))
                     break
 
             except Exception as ex:
                 custom_logging_callback(__log, logging.ERROR, *sys.exc_info())
-                await socket.send(pickle.dumps(RPL_Error(str(ex))))
+                await socket.send(blosc.compress(pickle.dumps(RPL_Error(str(ex)))))
         __log.warning("ZMQ context is shutting down")
     loop.create_task(recv_and_process())
 
 
 def zmq_context_close():
     __context.destroy()
-
-
-
-def __send_message(socket, obj, flags=0):
-    return socket.send(blosc.compress(bytes(obj)), flags=flags)
-
-def __recv_message(socket, flags=0):
-    compressed_obj_bytes = socket.recv(flags)
-    return blosc.decompress(compressed_obj_bytes)
 
 
 async def __process_request(request):
@@ -88,12 +80,17 @@ async def __process_request(request):
         database_info = await database.info()
         return RPL_CentralNetworkPolicies(**database_info)
 
+    elif isinstance(request, REQ_Register_Controller):
+        await database.register_controller(
+            uuid=request.controller_id,
+            ipv4_info=request.ipv4_info,
+            ipv6_info=request.ipv6_info
+        )
+        return RPL_Success()
     else:
         return RPL_Error("Unknown Request: {}".format(request))
 
-
-
-#
+#uuid, ipv4_info=None, ipv6_info=None
 #
 # class ServerTask(threading.Thread):
 #     """ServerTask"""
