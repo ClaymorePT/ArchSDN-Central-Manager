@@ -16,6 +16,7 @@ import sys
 from arg_parsing import parse_arguments
 import signal
 import functools
+import database
 
 from helpers import custom_logging_callback, logger_module_name
 
@@ -57,6 +58,13 @@ if __name__ == '__main__':
                         )
                     )
         )
+        fut = database.initialise(
+            location=parsed_args.storage,
+            ipv4_network=parsed_args.ipv4network,
+            ipv6_network=parsed_args.ipv6network
+        )
+        loop.run_until_complete(fut)
+        fut.result()
 
         zmq_requests.zmq_context_initialize(parsed_args.ip, parsed_args.port)
 

@@ -3,7 +3,7 @@ import argparse
 import ipaddress
 
 def validate_path(location):
-    if location == None:
+    if location == ":memory:":
         return location
     loc = pathlib.Path(location)
     loc_parent = loc.parent
@@ -16,7 +16,7 @@ def validate_address(address):
     try:
         ip = ipaddress.ip_address(address)
         if not ip.is_multicast and not ip.is_unspecified:
-            return address
+            return ip
         else:
             raise argparse.ArgumentTypeError("Invalid IP address: {:s}".format(address))
     except Exception:
@@ -26,7 +26,7 @@ def validate_ipv4network(address):
     try:
         ip = ipaddress.IPv4Network(address)
         if ip.is_private:
-            return address
+            return ip
         else:
             raise argparse.ArgumentTypeError("Invalid IPv4 network address: {:s}".format(address))
     except Exception:
@@ -36,7 +36,7 @@ def validate_ipv6network(address):
     try:
         ip = ipaddress.IPv6Network(address)
         if ip.is_private:
-            return address
+            return ip
         else:
             raise argparse.ArgumentTypeError("Invalid IPv6 network address: {:s}".format(address))
     except Exception:
@@ -46,7 +46,7 @@ def validate_port(port):
     try:
         p = int(port)
         if p in range(1024, 0xFFFF):
-            return port
+            return p
         else:
             raise argparse.ArgumentTypeError("Invalid Port: {:s}".format(port))
     except Exception:
@@ -62,7 +62,7 @@ def parse_arguments():
                         type=validate_address, default="127.0.0.1")
     parser.add_argument("-p", "--port", help="Central Server Port (default: %(default)s)", type=int, default=12345)
     parser.add_argument("-s", "--storage", help="SQLite3 Database Location (default: ./%(default)s)",
-                        type=validate_path, default=None)
+                        type=validate_path, default=':memory:')
     parser.add_argument("-4net", "--ipv4network", help="IPv4 Network for Hosts (default: ./%(default)s)",
                         type=validate_ipv4network, default="10.0.0.0/8")
     parser.add_argument("-6net", "--ipv6network",

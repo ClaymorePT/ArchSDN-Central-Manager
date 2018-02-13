@@ -14,13 +14,17 @@ from .shared_data import GetConnector, SetConnector
 __log = logging.getLogger(logger_module_name(__file__))
 
 
-def init_database(location=":memory:", ipv4_network=None, ipv6_network=None):
+def init_database(
+        location=":memory:",
+        ipv4_network=IPv4Network(("10.0.0.0", 8)),
+        ipv6_network=IPv6Network("fd61:7263:6873:646e::0/64") # 61:7263:6873:646e -> archsdn in hex
+):
     assert GetConnector() is None, "database already initialized"
     assert isinstance(location, Path) or (isinstance(location, str) and location == ":memory:"), \
         "location is not an instance of Path nor str equal to :memory:"
-    assert isinstance(ipv4_network, type(None)) or isinstance(ipv4_network, IPv4Network), \
+    assert isinstance(ipv4_network, IPv4Network), \
         "ipv4_network not a valid IPv4 Network Address"
-    assert isinstance(ipv6_network, type(None)) or isinstance(ipv6_network, IPv6Network), \
+    assert isinstance(ipv6_network, IPv6Network), \
         "ipv6_network not a valid IPv6 Network Address"
     assert isinstance(ipv4_network, type(None)) or ipv4_network.is_private, \
         "ipv4_network expected to be a private network address"
@@ -29,11 +33,6 @@ def init_database(location=":memory:", ipv4_network=None, ipv6_network=None):
 
     if isinstance(location, Path):
         location = str(location.absolute())
-
-    if not ipv4_network:
-        ipv4_network = IPv4Network(("10.0.0.0", 8))
-    if not ipv6_network:
-        ipv6_network = IPv6Network("fd61:7263:6873:646e::0/64")  # 61:7263:6873:646e -> archsdn in hex
 
     database_connector = sqlite3.connect(location, isolation_level='IMMEDIATE')
     SetConnector(database_connector)
@@ -61,21 +60,24 @@ def init_database(location=":memory:", ipv4_network=None, ipv6_network=None):
             )
         )
         database_connector.commit()
+
+        db_cursor = database_connector.cursor()
+        db_cursor.execute("SELECT (creation_date) FROM configurations;")
+        creation_date = db_cursor.fetchone()[0]
+
+        __log.debug("Central Database initialised on the {:s}, located in {:s}, "
+                   "using ipv4 network {:s}, ipv6 network {:s}, "
+                   "service ipv4 {:s}, service ipv6 {:s}, service mac {:s}.".format(
+                str(creation_date), str(location),
+                str(ipv4_network), str(ipv6_network),
+                str(ipv4_address),str(ipv6_address),
+                str(EUI("FE:FF:FF:FF:FF:FF"))
+            )
+        )
     else:
         __log.info("Database exists! Using it...")
 
-    db_cursor = database_connector.cursor()
-    db_cursor.execute("SELECT (creation_date) FROM configurations;")
-    creation_date = db_cursor.fetchone()[0]
-    __log.debug("Central Database initialised on the {:s}, located in {:s}, "
-               "using ipv4 network {:s}, ipv6 network {:s}, "
-               "service ipv4 {:s}, service ipv6 {:s}, service mac {:s}.".format(
-            str(creation_date), str(location),
-            str(ipv4_network), str(ipv6_network),
-            str(ipv4_address),str(ipv6_address),
-            str(EUI("FE:FF:FF:FF:FF:FF"))
-        )
-    )
+
 
 
 def close_database():
