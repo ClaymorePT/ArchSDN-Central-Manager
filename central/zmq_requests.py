@@ -15,7 +15,7 @@ from zmq_messages import BaseMessage, \
 RPL_Error, RPL_Success, \
     REQ_LocalTime, RPL_LocalTime, \
     REQ_CentralNetworkPolicies, RPL_CentralNetworkPolicies, \
-    REQ_Register_Controller
+    REQ_Register_Controller, REQ_Query_Controller_Info, RPL_ControllerInformation
 
 
 # Tell asyncio to use zmq's eventloop (necessary if pyzmq is < than 17)
@@ -87,6 +87,9 @@ async def __process_request(request):
             ipv6_info=request.ipv6_info
         )
         return RPL_Success()
+    elif isinstance(request, REQ_Query_Controller_Info):
+        controller_info = await database.query_controller_info(request.controller_id)
+        return(RPL_ControllerInformation(**controller_info))
     else:
         return RPL_Error("Unknown Request: {}".format(request))
 

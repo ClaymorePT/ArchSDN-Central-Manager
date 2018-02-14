@@ -4,7 +4,7 @@ import logging
 from abc import ABC, abstractmethod
 from uuid import UUID
 from netaddr import EUI
-from ipaddress import IPv4Address, IPv6Address, IPv4Network, IPv6Network, ip_network
+from ipaddress import IPv4Address, IPv6Address, ip_network
 import time
 from helpers import logger_module_name
 
@@ -126,10 +126,10 @@ class REQ_Register_Controller(RequestMessage):
 
     def __init__(self, controller_id, ipv4_info=None, ipv6_info=None):
         assert isinstance(controller_id, UUID), "uuid is not a uuid.UUID object instance"
-        assert not ((ipv4_info is None) and (
-                    ipv6_info is None)), "ipv4_info and ipv6_info cannot be null at the same time"
-        assert ipv4_info(ipv4_info) or ipv4_info is None, "ipv4_info is invalid"
-        assert ipv6_info(ipv6_info) or ipv6_info is None, "ipv6_info is invalid"
+#        assert not ((ipv4_info is None) and (
+#                    ipv6_info is None)), "ipv4_info and ipv6_info cannot be null at the same time"
+#        assert ipv4_info(ipv4_info) or ipv4_info is None, "ipv4_info is invalid"
+#        assert ipv6_info(ipv6_info) or ipv6_info is None, "ipv6_info is invalid"
 
         self.controller_id = controller_id
         self.ipv4_info = ipv4_info
@@ -148,15 +148,23 @@ class REQ_Register_Controller(RequestMessage):
         self.ipv6_info = (IPv6Address(state[2][0]), state[2][1]) if state[2] != None else None
 
 
-# class REQ_Query_Controller_Info(BaseMessage):
-#     '''
-#         Message used to request the detailed information about a controller.
-#         Attributes:
-#             - Controller ID - UUID
-#     '''
-#     def __init__(self):
-#         pass
-#
+class REQ_Query_Controller_Info(RequestMessage):
+    '''
+        Message used to request the detailed information about a controller.
+        Attributes:
+            - Controller ID - UUID
+    '''
+    def __init__(self, controller_id):
+        assert isinstance(controller_id, UUID), "uuid is not a uuid.UUID object instance"
+
+        self.controller_id = controller_id
+
+    def __getstate__(self):
+        return self.controller_id.bytes
+
+    def __setstate__(self, state):
+        self.controller_id = UUID(bytes=state)
+
 #
 # class REQ_Unregister_Controller(BaseMessage):
 #     '''
@@ -248,7 +256,22 @@ class RPL_WithoutState(ReplyMessage):
         pass
 
 
-class RPL_LocalTime(BaseMessage):
+class RPL_Success(RPL_WithoutState):
+    '''
+        Message used by controllers to register themselves at the central manager.
+        Attributes:
+            - Controller ID - UUID
+            - Controller IPv4 Info Tuple
+              - IPv4
+              - Port
+            - Controller IPv6 Info Tuple
+              - IPv6
+              - Port
+    '''
+    pass
+
+
+class RPL_LocalTime(ReplyMessage):
     '''
         Message used by the central to reply the local time.
     '''
@@ -262,7 +285,7 @@ class RPL_LocalTime(BaseMessage):
         self.__time = state
 
 
-class RPL_CentralNetworkPolicies(BaseMessage):
+class RPL_CentralNetworkPolicies(ReplyMessage):
     '''
         Message used by central manager to reply with the network configurations
     '''
@@ -294,20 +317,34 @@ class RPL_CentralNetworkPolicies(BaseMessage):
         self.registration_date = state[7]
 
 
-class RPL_Success(RPL_WithoutState):
+class RPL_ControllerInformation(ReplyMessage):
     '''
-        Message used by controllers to register themselves at the central manager.
-        Attributes:
-            - Controller ID - UUID
-            - Controller IPv4 Info Tuple
-              - IPv4
-              - Port
-            - Controller IPv6 Info Tuple
-              - IPv6
-              - Port
+        Message used by central manager to reply with the controller information
     '''
-    pass
 
+    def __init__(self, ipv4, ipv4_port, ipv6, ipv6_port, name, registration_date):
+        self.ipv4 = ipv4
+        self.ipv4_port = ipv4_port
+        self.ipv6 = ipv6
+        self.ipv6_port = ipv6_port
+        self.name = name
+        self.registration_date = registration_date
+
+    def __getstate__(self):
+        return (
+            self.ipv4.packed, self.ipv4_port,
+            self.ipv6.packed, self.ipv6_port,
+            self.name.encode('ascii'),
+            self.registration_date
+        )
+
+    def __setstate__(self, state):
+        self.ipv4 = IPv4Address(state[0])
+        self.ipv4_port = state[1]
+        self.ipv6 = IPv6Address(state[2])
+        self.ipv6_port = state[3]
+        self.name = state[4].decode('ascii')
+        self.registration_date = state[5]
 
 
 ###########################

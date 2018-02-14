@@ -14,7 +14,7 @@ from zmq_messages import \
     RPL_Success, RPL_Error, \
     REQ_LocalTime, RPL_LocalTime, \
     REQ_CentralNetworkPolicies, RPL_CentralNetworkPolicies, \
-    REQ_Register_Controller
+    REQ_Register_Controller, REQ_Query_Controller_Info, RPL_ControllerInformation
 
 
 mac_eui48.word_sep = ":"
@@ -34,7 +34,6 @@ class ZMQ_Puppet_Socket():
         return pickle.loads(blosc.decompress(self.socket.recv(), as_bytearray=True))
 
 
-
 class DefaultInitAndClose(unittest.TestCase):
     def setUp(self):
         self.central = subprocess.Popen("./main.py", close_fds=True)
@@ -51,7 +50,6 @@ class DefaultInitAndClose(unittest.TestCase):
 
     def test_get_central_network_info(self):
         self.socket.send(REQ_CentralNetworkPolicies())
-        #  Get the reply.
         msg = self.socket.recv()
         self.assertIsInstance(msg, RPL_CentralNetworkPolicies)
         self.assertIsInstance(msg.ipv4_network, IPv4Network)
@@ -77,29 +75,26 @@ class ControllerRegistration(unittest.TestCase):
         self.ipv4_info = (IPv4Address("192.168.1.1"), 12345)
         self.ipv6_info = (IPv6Address(1), 12345)
 
-
     def tearDown(self):
         self.central.send_signal(signal.SIGINT)
         self.central.wait()
 
-    def test_get_default_info(self):
-
-
-        #  Socket to talk to server
-
-        self.socket.send(REQ_LocalTime())
-        #  Get the reply.
-        msg = self.socket.recv()
-        self.assertIsInstance(msg, RPL_LocalTime)
-
     def test_register_controller(self):
-        self.socket.send(
-            blosc.compress(
-                pickle.dumps(
-                    REQ_Register_Controller(self.uuid, self.ipv4_info, self.ipv6_info)
-                )
-            )
-        )
-        #  Get the reply.
-        msg = pickle.loads(blosc.decompress(self.socket.recv()))
-        self.assertIsInstance(msg, RPL_Success)
+        self.socket.send(REQ_Register_Controller(self.uuid, self.ipv4_info, self.ipv6_info))
+        self.assertIsInstance(self.socket.recv(), RPL_Success)
+
+    def test_query_controller_information(self):
+        self.socket.send(REQ_Register_Controller(self.uuid, self.ipv4_info, self.ipv6_info))
+        self.assertIsInstance(self.socket.recv(), RPL_Success)
+        self.socket.send(REQ_Query_Controller_Info(self.uuid))
+        msg = self.socket.recv()
+        self.assertIsInstance(msg, RPL_ControllerInformation)
+
+        self.assertEqual(msg.ipv4, self.ipv4_info[0])
+        self.assertEqual(msg.ipv4_port, self.ipv4_info[1])
+        self.assertEqual(msg.ipv6, self.ipv6_info[0])
+        self.assertEqual(msg.ipv6_port, self.ipv6_info[1])
+        self.assertEqual(msg.name, ".".join((str(self.uuid), 'controller', 'archsdn')))
+        self.assertLessEqual(msg.registration_date, localtime())
+
+
