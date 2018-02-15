@@ -9,7 +9,8 @@ __all__ = ["init_database",
            "remove_all_clients",
            "register_client",
            "client_info",
-           "remove_client"
+           "remove_client",
+           "is_client_registered"
            ]
 
 from .generics import init_database, close_database, info
@@ -20,4 +21,8 @@ from .controller import \
     is_registered as is_controller_registered, \
     update_addresses as update_controller_addresses, \
     clean_slate as remove_all_clients
-from .client import register as register_client, info as client_info, remove as remove_client
+from .client import \
+    register as register_client, \
+    info as client_info, \
+    remove as remove_client, \
+    exists as is_client_registered

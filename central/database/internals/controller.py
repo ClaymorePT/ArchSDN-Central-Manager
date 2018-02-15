@@ -154,21 +154,35 @@ def update_addresses(uuid, ipv4_info=None, ipv6_info=None):
             db_cursor.execute("SELECT count(*) FROM controllers "
                               "WHERE controllers.uuid == ?", (uuid.bytes,))
             res = db_cursor.fetchone()
-            if res[0] == 1:
+            if res[0] == 0:
                 assert not GetConnector().in_transaction, "database with active transaction"
-                raise ControllerAlreadyRegistered()
+                raise ControllerNotRegistered()
 
             if ipv4_info:
+                db_cursor.execute("SELECT count(*) FROM controllers_ipv4s "
+                                  "WHERE address == ?", (int(ipv4_info[0]),))
+                res = db_cursor.fetchone()
+                if res[0]:
+                    assert not GetConnector().in_transaction, "database with active transaction"
+                    raise IPv4InfoAlreadyRegistered()
+
                 db_cursor.execute("UPDATE controllers_ipv4s SET address=?, port=? "
                                   "WHERE id = ("
-                                  "SELECT ipv4_id FROM controllers WHERE controllers.uuid = ?);",
+                                  "SELECT ipv4 FROM controllers WHERE controllers.uuid = ?);",
                                   (int(ipv4_info[0]), ipv4_info[1], uuid.bytes))
 
             if ipv6_info:
+                db_cursor.execute("SELECT count(*) FROM controllers_ipv6s "
+                                  "WHERE address == ?", (ipv6_info[0].packed,))
+                res = db_cursor.fetchone()
+                if res[0]:
+                    assert not GetConnector().in_transaction, "database with active transaction"
+                    raise IPv6InfoAlreadyRegistered()
+
                 db_cursor.execute("UPDATE controllers_ipv6s SET address=?, port=? "
                                   "WHERE id = ("
-                                  "SELECT ipv6_id FROM controllers WHERE controllers.uuid = ?);",
-                                  (int(ipv6_info[0]), ipv6_info[1], uuid.bytes))
+                                  "SELECT ipv6 FROM controllers WHERE controllers.uuid = ?);",
+                                  (ipv6_info[0].packed, ipv6_info[1], uuid.bytes))
             database_connector.commit()
             assert not GetConnector().in_transaction, "database with active transaction"
 
@@ -186,7 +200,6 @@ def clean_slate(uuid):
     assert GetConnector(), "database not initialized"
     assert not GetConnector().in_transaction, "database with active transaction"
     assert isinstance(uuid, UUID), "uuid is not a uuid.UUID object instance"
-
 
     try:
         database_connector = GetConnector()

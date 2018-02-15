@@ -10,6 +10,7 @@ __all__ = ["initialise",
            "register_client",
            "query_client_info",
            "remove_client",
+           "is_client_registered",
            "ControllerNotRegistered",
            "ControllerAlreadyRegistered",
            "ClientNotRegistered",
@@ -48,11 +49,10 @@ from .internals import \
     remove_all_clients as __remove_all_clients, \
     register_client as __register_client, \
     client_info as __query_client_info, \
-    remove_client as __remove_client
+    remove_client as __remove_client, \
+    is_client_registered as __is_client_registered
 
 __log = logging.getLogger(logger_module_name(__file__))
-
-
 
 
 _callbacks = {
@@ -67,7 +67,8 @@ _callbacks = {
     "remove_all_clients": __remove_all_clients,
     "register_client": __register_client,
     "query_client_info": __query_client_info,
-    "remove_client": __remove_client
+    "remove_client": __remove_client,
+    "is_client_registered": __is_client_registered
 }
 
 _exceptions = {

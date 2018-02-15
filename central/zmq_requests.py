@@ -9,13 +9,21 @@ import blosc
 import pickle
 from ipaddress import IPv4Address, IPv6Address
 
+import database
+
 from helpers import logger_module_name, custom_logging_callback
 
 from zmq_messages import BaseMessage, \
-RPL_Error, RPL_Success, \
-    REQ_LocalTime, RPL_LocalTime, \
-    REQ_CentralNetworkPolicies, RPL_CentralNetworkPolicies, \
-    REQ_Register_Controller, REQ_Query_Controller_Info, RPL_ControllerInformation
+    RPLGenericError, RPLSuccess, \
+    REQLocalTime, RPLLocalTime, \
+    REQCentralNetworkPolicies, RPLCentralNetworkPolicies, \
+    REQRegisterController, REQQueryControllerInfo, RPLControllerInformation, REQUnregisterController, \
+    REQUpdateControllerInfo, REQUnregisterAllClients, \
+    RPLControllerNotRegistered, RPLControllerAlreadyRegistered, REQIsControllerRegistered, \
+    REQRegisterControllerClient, REQRemoveControllerClient, REQIsClientAssociated, \
+    RPLClientNotRegistered, RPLClientAlreadyRegistered, \
+    RPLIPv4InfoAlreadyRegistered, RPLIPv6InfoAlreadyRegistered, \
+    RPLAfirmative, RPLNegative
 
 
 # Tell asyncio to use zmq's eventloop (necessary if pyzmq is < than 17)
@@ -28,6 +36,7 @@ __loop = asyncio.get_event_loop()
 
 
 def zmq_context_initialize(ip, port):
+    global __context
     assert isinstance(ip, (IPv4Address, IPv6Address)), \
         "ip is not a valid IPv4Address or IPv6Address object. Got instead {:s}".format(repr(ip))
     assert isinstance(port, int), \
@@ -35,19 +44,16 @@ def zmq_context_initialize(ip, port):
     assert 0 < port < 0xFFFF, \
         "port range invalid. Should be between 0 and 0xFFFF. Got {:d}".format(port)
 
-
-    global __context
     loop = asyncio.get_event_loop()
     __context = Context()
-
 
     async def recv_and_process():
         socket = __context.socket(zmq.REP)
         socket.bind("tcp://{:s}:{:d}".format(str(ip), port))
 
-        while (True):
+        while True:
             try:
-                msg = pickle.loads(blosc.decompress(await socket.recv(), as_bytearray=True))  # waits for msg to be ready
+                msg = pickle.loads(blosc.decompress(await socket.recv(), as_bytearray=True))
                 __log.debug("Message received: {:s}".format(str(msg)))
                 if isinstance(msg, BaseMessage):
                     reply = await __process_request(msg)
@@ -55,13 +61,13 @@ def zmq_context_initialize(ip, port):
                 else:
                     error_str = "Invalid message received: {:s}. Closing socket...".format(repr(msg))
                     __log.error(error_str)
-                    await socket.send(blosc.compress(pickle.dumps(RPL_Error(error_str))))
+                    await socket.send(blosc.compress(pickle.dumps(RPLGenericError(error_str))))
                     break
 
             except Exception as ex:
-                custom_logging_callback(__log, logging.ERROR, *sys.exc_info())
-                await socket.send(blosc.compress(pickle.dumps(RPL_Error(str(ex)))))
-        __log.warning("ZMQ context is shutting down")
+                await socket.send(blosc.compress(pickle.dumps(RPLGenericError(str(ex)))))
+
+        __log.warning("ZMQ context is shutting down...")
     loop.create_task(recv_and_process())
 
 
@@ -70,78 +76,107 @@ def zmq_context_close():
 
 
 async def __process_request(request):
-    import database
+    try:
+        return await _requests[type(request)](request)
+
+    except KeyError:
+        return RPLGenericError("Unknown Request: {}".format(repr(request)))
+
+    except database.IPv4InfoAlreadyRegistered:
+        return RPLIPv4InfoAlreadyRegistered()
+
+    except database.IPv6InfoAlreadyRegistered:
+        return RPLIPv6InfoAlreadyRegistered()
+
+    except database.ControllerAlreadyRegistered:
+        return RPLControllerAlreadyRegistered()
+
+    except database.ControllerNotRegistered:
+        return RPLControllerNotRegistered()
+
+    except database.ClientAlreadyRegistered:
+        return RPLClientAlreadyRegistered()
+
+    except database.ClientNotRegistered:
+        return RPLClientNotRegistered()
+
+    except Exception as ex:
+        custom_logging_callback(__log, logging.ERROR, *sys.exc_info())
+        if sys.flags.debug:
+            return RPLGenericError(str(ex))
+        return RPLGenericError("Internal Error. Cannot process request.")
 
 
-    if isinstance(request, REQ_LocalTime):
-        return RPL_LocalTime()
-
-    elif isinstance(request, REQ_CentralNetworkPolicies):
-        database_info = await database.info()
-        return RPL_CentralNetworkPolicies(**database_info)
-
-    elif isinstance(request, REQ_Register_Controller):
-        await database.register_controller(
-            uuid=request.controller_id,
-            ipv4_info=request.ipv4_info,
-            ipv6_info=request.ipv6_info
-        )
-        return RPL_Success()
-    elif isinstance(request, REQ_Query_Controller_Info):
-        controller_info = await database.query_controller_info(request.controller_id)
-        return(RPL_ControllerInformation(**controller_info))
-    else:
-        return RPL_Error("Unknown Request: {}".format(request))
-
-#uuid, ipv4_info=None, ipv6_info=None
-#
-# class ServerTask(threading.Thread):
-#     """ServerTask"""
-#     def __init__(self):
-#         threading.Thread.__init__ (self)
-#
-#     def run(self):
-#         context = zmq.Context()
-#         frontend = context.socket(zmq.ROUTER)
-#         frontend.bind('tcp://*:5570')
-#
-#         backend = context.socket(zmq.DEALER)
-#         backend.bind('inproc://backend')
-#
-#         workers = []
-#         for i in range(5):
-#             worker = ServerWorker(context)
-#             worker.start()
-#             workers.append(worker)
-#
-#         zmq.proxy(frontend, backend)
-#
-#         frontend.close()
-#         backend.close()
-#         context.term()
-#
-# class ServerWorker(threading.Thread):
-#     """ServerWorker"""
-#     def __init__(self, context):
-#         threading.Thread.__init__ (self)
-#         self.context = context
-#
-#     def run(self):
-#         worker = self.context.socket(zmq.DEALER)
-#         worker.connect('inproc://backend')
-#         tprint('Worker started')
-#         while True:
-#             ident, msg = worker.recv_multipart()
-#             tprint('Worker received %s from %s' % (msg, ident))
-#             replies = randint(0,4)
-#             for i in range(replies):
-#                 time.sleep(1. / (randint(1,10)))
-#                 worker.send_multipart([ident, msg])
-#
-#         worker.close()
-#
+async def __req_local_time(request):
+    return RPLLocalTime()
 
 
-# async def Ping(data=None):
-#     __log.info("Client {}:{} requested a ping with data:\n {}".format(ip, port, data))
-#     return (UUID(int=4), EUI(1))
+async def __req_central_network_policies(request):
+    database_info = await database.info()
+    return RPLCentralNetworkPolicies(**database_info)
+
+
+async def __req_register_controller(request):
+    await database.register_controller(
+        uuid=request.controller_id,
+        ipv4_info=request.ipv4_info,
+        ipv6_info=request.ipv6_info
+    )
+    return RPLSuccess()
+
+
+async def __req_query_controller_info(request):
+    controller_info = await database.query_controller_info(request.controller_id)
+    return RPLControllerInformation(**controller_info)
+
+
+async def __req_update_controller_info(request):
+    await database.update_controller_addresses(request.controller_id, request.ipv4_info, request.ipv6_info)
+    return RPLSuccess()
+
+
+async def __req_unregister_controller(request):
+    await database.remove_controller(request.controller_id)
+    return RPLSuccess()
+
+
+async def __req_is_controller_registered(request):
+    if await database.is_controller_registered(request.controller_id):
+        return RPLAfirmative()
+    return RPLNegative()
+
+
+async def __req_register_controller_client(request):
+    await database.register_client(request.client_id, request.controller_id)
+    return RPLSuccess()
+
+
+async def __req_remove_controller_client(request):
+    await database.remove_client(request.client_id, request.controller_id)
+    return RPLSuccess()
+
+
+async def __req_is_client_associated(request):
+    if await database.is_client_registered(request.client_id, request.controller_id):
+        return RPLAfirmative()
+    return RPLNegative()
+
+
+async def __req_unregister_all_clients(request):
+    await database.remove_all_clients(request.controller_id)
+    return RPLSuccess()
+
+
+_requests = {
+    REQLocalTime: __req_local_time,
+    REQCentralNetworkPolicies: __req_central_network_policies,
+    REQRegisterController: __req_register_controller,
+    REQQueryControllerInfo: __req_query_controller_info,
+    REQUnregisterController: __req_unregister_controller,
+    REQIsControllerRegistered: __req_is_controller_registered,
+    REQRegisterControllerClient: __req_register_controller_client,
+    REQRemoveControllerClient: __req_remove_controller_client,
+    REQIsClientAssociated: __req_is_client_associated,
+    REQUpdateControllerInfo: __req_update_controller_info,
+    REQUnregisterAllClients: __req_unregister_all_clients
+}

@@ -12,7 +12,7 @@ from .exceptions import ControllerNotRegistered, ClientNotRegistered, ClientAlre
 
 __log = logging.getLogger(logger_module_name(__file__))
 
-# TODO: Check database Transactions and Rollbacks
+
 def register(client_id, controller_uuid):
     assert GetConnector(), "database not initialized"
     assert not GetConnector().in_transaction, "database with active transaction"
@@ -25,10 +25,10 @@ def register(client_id, controller_uuid):
         with closing(database_connector.cursor()) as db_cursor:
             db_cursor.execute("SELECT id FROM controllers WHERE uuid == ?", (controller_uuid.bytes,))
 
-            res = db_cursor.fetchone()[0]
+            res = db_cursor.fetchone()
             if res is None:
                 raise ControllerNotRegistered()
-            controller_id = res
+            controller_id = res[0]
 
             db_cursor.execute("SELECT ipv4_network, ipv6_network FROM configurations")
             res = db_cursor.fetchone()
@@ -74,7 +74,6 @@ def register(client_id, controller_uuid):
 
             ipv6_address = ipv6_network.network_address + ipv6_id
             db_cursor.execute("INSERT INTO clients_ipv6s(id, address) VALUES (?,?)", (ipv6_id, ipv6_address.packed,))
-
 
             hostname = (".".join((str(client_id), str(controller_uuid), "archsdn")))
             db_cursor.execute("INSERT INTO names(name) "
@@ -200,3 +199,25 @@ def remove(client_id, controller):
     except Exception as ex:
         assert not GetConnector().in_transaction, "database with active transaction"
         raise ex
+
+
+def exists(client_id, controller):
+    assert GetConnector(), "database not initialized"
+    assert not GetConnector().in_transaction, "database with active transaction"
+    assert isinstance(client_id, int), "clientid expected to be an instance of type int"
+    assert client_id >= 0, "clientid cannot be negative"
+    assert isinstance(controller, uuid.UUID), "controller expected to be an instance of type uuid.UUID"
+
+    with closing(GetConnector().cursor()) as db_cursor:
+        db_cursor.execute("SELECT id FROM controllers WHERE uuid == ?", (controller.bytes,))
+
+        res = db_cursor.fetchone()
+        if res is None:
+            raise ControllerNotRegistered()
+
+        db_cursor.execute("SELECT count(id) FROM clients_view WHERE (id == ?) AND (controller == ?)", (client_id, controller.bytes))
+
+        if db_cursor.fetchone()[0] == 0:
+            return False
+        return True
+
