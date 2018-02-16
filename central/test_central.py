@@ -76,6 +76,25 @@ class DefaultInitAndClose(unittest.TestCase):
         self.assertLessEqual(msg.registration_date, localtime())
 
 
+class MultipleClientsOperations(unittest.TestCase):
+    def setUp(self):
+        self.central = openPuppetProcess()
+        self.socket_1 = ZMQ_Puppet_Socket()
+        self.socket_2 = ZMQ_Puppet_Socket()
+
+    def tearDown(self):
+        self.central.send_signal(signal.SIGINT)
+        self.central.wait()
+
+    def test_multiple_clients(self):
+        self.socket_1.send(REQLocalTime())
+        self.socket_2.send(REQLocalTime())
+        msg_1 = self.socket_1.recv()
+        msg_2 = self.socket_2.recv()
+        self.assertIsInstance(msg_1, RPLLocalTime)
+        self.assertIsInstance(msg_2, RPLLocalTime)
+
+
 class ControllerRegistration(unittest.TestCase):
     def setUp(self):
         self.central = openPuppetProcess()
