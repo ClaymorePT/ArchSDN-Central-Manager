@@ -2,11 +2,11 @@
 /*
 
 # ... except these directories
-!/central/
+!/src/
 
 # ... except these specific files
 !/.gitignore
-!/LICENSE
+!/LICENSE.txt
 !/README.rst
 !/requirements.txt
 !/setup.py
