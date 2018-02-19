@@ -26,7 +26,7 @@ from threading import Thread, Event
 import sys
 import atexit
 import logging
-from helpers import logger_module_name, custom_logging_callback
+from archsdn_central.helpers import logger_module_name
 
 from .internals.exceptions import \
     ControllerNotRegistered as __ControllerNotRegistered, \

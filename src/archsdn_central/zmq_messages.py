@@ -6,8 +6,9 @@ from uuid import UUID
 from netaddr import EUI
 from ipaddress import IPv4Address, IPv6Address, ip_network
 import time
-from helpers import logger_module_name
 import sys
+
+from archsdn_central.helpers import logger_module_name
 
 __log = logging.getLogger(logger_module_name(__file__))
 

@@ -5,7 +5,7 @@ import time
 from contextlib import closing
 from ipaddress import IPv4Network, IPv6Network, IPv4Address, IPv6Address
 
-from helpers import logger_module_name
+from archsdn_central.helpers import logger_module_name
 
 from .shared_data import GetConnector
 from .exceptions import ControllerNotRegistered, ClientNotRegistered, ClientAlreadyRegistered

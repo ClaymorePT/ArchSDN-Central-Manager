@@ -5,7 +5,7 @@ from contextlib import closing
 from uuid import UUID
 from ipaddress import IPv4Address, IPv6Address
 
-from helpers import logger_module_name
+from archsdn_central.helpers import logger_module_name
 
 from .data_validation import is_ipv4_port_tuple, is_ipv6_port_tuple
 from .exceptions import ControllerNotRegistered, IPv4InfoAlreadyRegistered, IPv6InfoAlreadyRegistered, \

@@ -15,7 +15,7 @@ def validate_path(location):
 def validate_address(address):
     try:
         ip = ipaddress.ip_address(address)
-        if not ip.is_multicast and not ip.is_unspecified:
+        if (not ip.is_multicast and not ip.is_unspecified) or (ip == ipaddress.IPv4Address('0.0.0.0')):
             return ip
         else:
             raise argparse.ArgumentTypeError("Invalid IP address: {:s}".format(address))
@@ -59,7 +59,7 @@ def parse_arguments():
     parser.add_argument("-l", "--logLevel", help="Logging Level (default: %(default)s)", type=str,
                         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], default="INFO")
     parser.add_argument("-i", "--ip", help="Central Server interface IP to bind (default: %(default)s)",
-                        type=validate_address, default="127.0.0.1")
+                        type=validate_address, default="0.0.0.0")
     parser.add_argument("-p", "--port", help="Central Server Port (default: %(default)s)", type=int, default=12345)
     parser.add_argument("-s", "--storage", help="SQLite3 Database Location (default: ./%(default)s)",
                         type=validate_path, default=':memory:')

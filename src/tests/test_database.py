@@ -6,14 +6,16 @@ import time
 import uuid
 from ipaddress import IPv4Network, IPv6Network, IPv4Address, IPv6Address
 from netaddr import EUI, mac_eui48
-mac_eui48.word_sep = ":"
 
+from archsdn_central.helpers import custom_logging_callback
+from archsdn_central import database
+
+mac_eui48.word_sep = ":"
 database_location = ":memory:"
-from helpers import custom_logging_callback
-import database
 
 sys.excepthook = (lambda tp, val, tb: custom_logging_callback(logging.getLogger(), logging.ERROR, tp, val, tb))
 loop = asyncio.get_event_loop()
+
 
 class DefaultInitAndClose(unittest.TestCase):
 
@@ -58,11 +60,9 @@ class ControllersTests(unittest.TestCase):
         self.ipv4_info = (IPv4Address("192.168.1.1"), 12345)
         self.ipv6_info = (IPv6Address(1), 12345)
 
-
     def tearDown(self):
         fut = database.close()
         loop.run_until_complete(fut)
-
 
     def test_register_controller(self):
         fut = database.register_controller(self.uuid, ipv4_info=self.ipv4_info)
@@ -202,11 +202,12 @@ class ClientsTests(unittest.TestCase):
         self.client_id = 100
         fut = database.initialise(location=database_location, ipv4_network=IPv4Network("10.0.0.0"))
         loop.run_until_complete(fut)
-        fut = database.register_controller(uuid.UUID(int=1), ipv4_info=(IPv4Address("192.168.1.1"), 12345),
-                                     ipv6_info=(IPv6Address(1), 12345))
+        fut = database.register_controller(
+            uuid.UUID(int=1),
+            ipv4_info=(IPv4Address("192.168.1.1"), 12345),
+            ipv6_info=(IPv6Address(1), 12345)
+        )
         loop.run_until_complete(fut)
-
-
 
     def tearDown(self):
         fut = database.close()

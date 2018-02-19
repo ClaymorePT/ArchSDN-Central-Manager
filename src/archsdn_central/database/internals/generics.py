@@ -7,7 +7,7 @@ from time import localtime
 from contextlib import closing
 from netaddr import EUI
 
-from helpers import logger_module_name
+from archsdn_central.helpers import logger_module_name
 
 from .shared_data import GetConnector, SetConnector
 

@@ -13,14 +13,16 @@ management controller program.
 import asyncio
 import logging
 import sys
-from arg_parsing import parse_arguments
 import signal
 import functools
-import database
 
-from helpers import custom_logging_callback, logger_module_name
+from archsdn_central.helpers import custom_logging_callback, logger_module_name
+from archsdn_central.arg_parsing import parse_arguments
+from archsdn_central import database
+from archsdn_central import zmq_requests
 
-import zmq_requests
+
+
 
 
 # Initialize Exception Hook
@@ -38,7 +40,7 @@ def quit_callback(signame):
     asyncio.get_event_loop().stop()
 
 
-if __name__ == '__main__':
+def main():
     try:
         loop = asyncio.get_event_loop()
 
@@ -83,4 +85,5 @@ if __name__ == '__main__':
     exit(0)
 
 
-
+if __name__ == '__main__':
+    main()

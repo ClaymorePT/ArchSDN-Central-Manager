@@ -4,14 +4,15 @@ import subprocess
 import pickle
 from ipaddress import IPv4Address, IPv6Address, IPv4Network, IPv6Network
 from time import struct_time, localtime
-from uuid import UUID, uuid4
+from uuid import UUID
+import pathlib
 
 from netaddr import mac_eui48, EUI
 import zmq
 import blosc
 
-from zmq_messages import \
-    RPLSuccess, RPLGenericError, \
+from archsdn_central.zmq_messages import \
+    RPLSuccess, \
     REQLocalTime, RPLLocalTime, \
     REQCentralNetworkPolicies, RPLCentralNetworkPolicies, \
     REQRegisterController, REQQueryControllerInfo, RPLControllerInformation, REQUnregisterController, \
@@ -28,7 +29,13 @@ database_location = ":memory:"
 
 
 def openPuppetProcess():
-    return subprocess.Popen(("python3", "-d", "main.py", "-l", "DEBUG"), close_fds=True)
+    if pathlib.Path("../archsdn_central/main.py").exists():
+        return subprocess.Popen(
+            ("../archsdn_central/main.py", "-l", "DEBUG")
+        )
+    return subprocess.Popen(
+        ("./src/archsdn_central/main.py", "-l", "DEBUG")
+    )
 
 
 class ZMQ_Puppet_Socket():
