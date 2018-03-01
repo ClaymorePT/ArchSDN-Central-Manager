@@ -3,7 +3,7 @@ import sqlite3
 import pathlib
 from pathlib import Path
 from ipaddress import IPv4Network, IPv6Network, IPv4Address, IPv6Address
-from time import localtime
+from time import localtime, strftime, gmtime
 from contextlib import closing
 from netaddr import EUI
 
@@ -68,7 +68,8 @@ def init_database(
         __log.debug("Central Database initialised on the {:s}, located in {:s}, "
                    "using ipv4 network {:s}, ipv6 network {:s}, "
                    "service ipv4 {:s}, service ipv6 {:s}, service mac {:s}.".format(
-                str(creation_date), str(location),
+                strftime('%Y/%m/%d %H:%M:%S (%Z)', gmtime(creation_date)),
+                "memory" if location == ':memory:' else str(location),
                 str(ipv4_network), str(ipv6_network),
                 str(ipv4_address),str(ipv6_address),
                 str(EUI("FE:FF:FF:FF:FF:FF"))

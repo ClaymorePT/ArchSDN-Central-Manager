@@ -4,6 +4,7 @@ import sys
 import asyncio
 import time
 import uuid
+from pathlib import Path
 from ipaddress import IPv4Network, IPv6Network, IPv4Address, IPv6Address
 from netaddr import EUI, mac_eui48
 
@@ -11,7 +12,7 @@ from archsdn_central.helpers import custom_logging_callback
 from archsdn_central import database
 
 mac_eui48.word_sep = ":"
-database_location = ":memory:"
+database_location = Path("/tmp/test_database.sqlite3")
 
 sys.excepthook = (lambda tp, val, tb: custom_logging_callback(logging.getLogger(), logging.ERROR, tp, val, tb))
 loop = asyncio.get_event_loop()
@@ -26,6 +27,7 @@ class DefaultInitAndClose(unittest.TestCase):
     def tearDown(self):
         fut = database.close()
         loop.run_until_complete(fut)
+        database_location.unlink()
 
     def test_get_default_info(self):
         fut = database.info()
@@ -63,6 +65,7 @@ class ControllersTests(unittest.TestCase):
     def tearDown(self):
         fut = database.close()
         loop.run_until_complete(fut)
+        database_location.unlink()
 
     def test_register_controller(self):
         fut = database.register_controller(self.uuid, ipv4_info=self.ipv4_info)
@@ -212,14 +215,11 @@ class ClientsTests(unittest.TestCase):
     def tearDown(self):
         fut = database.close()
         loop.run_until_complete(fut)
+        database_location.unlink()
 
     def test_register_client(self):
         fut = database.register_client(self.client_id, self.controller_uuid)
         loop.run_until_complete(fut)
-        (ipv4, ipv6, name) = fut.result()
-
-        self.assertEqual(ipv4, IPv4Address("10.0.0.2"))
-        self.assertEqual(ipv6, IPv6Address('fd61:7263:6873:646e::2'))
 
     def test_double_registration(self):
         fut = database.register_client(self.client_id, self.controller_uuid)
@@ -232,7 +232,7 @@ class ClientsTests(unittest.TestCase):
     def test_query_info(self):
         fut = database.register_client(self.client_id, self.controller_uuid)
         loop.run_until_complete(fut)
-        fut = database.query_client_info((self.controller_uuid, self.client_id))
+        fut = database.query_client_info(self.client_id, self.controller_uuid)
         loop.run_until_complete(fut)
         info = fut.result()
         self.assertIn("ipv4", info)

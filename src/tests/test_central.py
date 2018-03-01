@@ -1,17 +1,17 @@
 import unittest
 import signal
 import subprocess
-import pickle
 from ipaddress import IPv4Address, IPv6Address, IPv4Network, IPv6Network
 from time import struct_time, localtime
 from uuid import UUID
-import pathlib
+from pathlib import Path
 
 from netaddr import mac_eui48, EUI
 import zmq
 import blosc
 
 from archsdn_central.zmq_messages import \
+    loads, dumps, \
     RPLSuccess, \
     REQLocalTime, RPLLocalTime, \
     REQCentralNetworkPolicies, RPLCentralNetworkPolicies, \
@@ -20,22 +20,25 @@ from archsdn_central.zmq_messages import \
     RPLControllerAlreadyRegistered, RPLControllerNotRegistered, REQIsControllerRegistered, \
     RPLIPv6InfoAlreadyRegistered, RPLIPv4InfoAlreadyRegistered, \
     REQRegisterControllerClient, REQRemoveControllerClient, REQIsClientAssociated, REQUnregisterAllClients, \
+    REQClientInformation, RPLClientInformation, \
     RPLClientAlreadyRegistered, RPLClientNotRegistered, \
     RPLAfirmative, RPLNegative
 
 
 mac_eui48.word_sep = ":"
-database_location = ":memory:"
+database_location = Path("/tmp/test_central.sqlite3")
 
 
 def openPuppetProcess():
-    if pathlib.Path("../archsdn_central/main.py").exists():
+    if Path("../archsdn_central/main.py").exists():
         return subprocess.Popen(
-            ("../archsdn_central/main.py", "-l", "DEBUG")
+            ("../archsdn_central/main.py", "-l", "DEBUG", "-s", str(database_location))
         )
-    return subprocess.Popen(
-        ("./src/archsdn_central/main.py", "-l", "DEBUG")
-    )
+    if Path("./src/archsdn_central/main.py").exists():
+        return subprocess.Popen(
+            ("./src/archsdn_central/main.py", "-l", "DEBUG", "-s", str(database_location))
+        )
+    raise SystemExit("archsdn_central.main.py not found.")
 
 
 class ZMQ_Puppet_Socket():
@@ -45,10 +48,10 @@ class ZMQ_Puppet_Socket():
         self.socket.connect(location)
 
     def send(self, obj):
-        return self.socket.send(blosc.compress(pickle.dumps(obj)))
+        return self.socket.send(blosc.compress(dumps(obj)))
 
     def recv(self):
-        return pickle.loads(blosc.decompress(self.socket.recv(), as_bytearray=True))
+        return loads(blosc.decompress(self.socket.recv(), as_bytearray=True))
 
 
 class DefaultInitAndClose(unittest.TestCase):
@@ -59,6 +62,7 @@ class DefaultInitAndClose(unittest.TestCase):
     def tearDown(self):
         self.central.send_signal(signal.SIGINT)
         self.central.wait()
+        database_location.unlink()
 
     def test_get_default_info(self):
         self.socket.send(REQLocalTime())
@@ -92,6 +96,7 @@ class MultipleClientsOperations(unittest.TestCase):
     def tearDown(self):
         self.central.send_signal(signal.SIGINT)
         self.central.wait()
+        database_location.unlink()
 
     def test_multiple_clients(self):
         self.socket_1.send(REQLocalTime())
@@ -114,6 +119,7 @@ class ControllerRegistration(unittest.TestCase):
     def tearDown(self):
         self.central.send_signal(signal.SIGINT)
         self.central.wait()
+        database_location.unlink()
 
     def test_register_controller(self):
         self.socket.send(REQRegisterController(self.uuid, self.ipv4_info, self.ipv6_info))
@@ -241,10 +247,21 @@ class ClientsRegistration(unittest.TestCase):
     def tearDown(self):
         self.central.send_signal(signal.SIGINT)
         self.central.wait()
+        database_location.unlink()
 
     def test_register_client(self):
         self.socket.send(REQRegisterControllerClient(self.uuid, self.client_id))
         self.assertIsInstance(self.socket.recv(), RPLSuccess)
+
+    def test_query_client_info(self):
+        self.socket.send(REQRegisterControllerClient(self.uuid, self.client_id))
+        self.assertIsInstance(self.socket.recv(), RPLSuccess)
+        self.socket.send(REQClientInformation(self.uuid, self.client_id))
+        msg = self.socket.recv()
+        self.assertIsInstance(msg, RPLClientInformation)
+        self.assertEqual(msg.ipv4, IPv4Address("10.0.0.2"))
+        self.assertEqual(msg.ipv6, IPv6Address("fd61:7263:6873:646e::2"))
+        self.assertEqual(msg.name, ".".join((str(self.client_id), str(self.uuid), 'archsdn')))
 
     def test_remove_client(self):
         self.socket.send(REQRegisterControllerClient(self.uuid, self.client_id))

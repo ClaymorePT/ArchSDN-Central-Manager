@@ -6,7 +6,6 @@ import asyncio
 import zmq
 from zmq.asyncio import Context
 import blosc
-import pickle
 from ipaddress import IPv4Address, IPv6Address
 
 from archsdn_central import database
@@ -14,14 +13,15 @@ from archsdn_central import database
 from archsdn_central.helpers import logger_module_name, custom_logging_callback
 
 from archsdn_central.zmq_messages import BaseMessage, \
+    loads, dumps, \
     RPLGenericError, RPLSuccess, \
     REQLocalTime, RPLLocalTime, \
     REQCentralNetworkPolicies, RPLCentralNetworkPolicies, \
     REQRegisterController, REQQueryControllerInfo, RPLControllerInformation, REQUnregisterController, \
     REQUpdateControllerInfo, REQUnregisterAllClients, \
     RPLControllerNotRegistered, RPLControllerAlreadyRegistered, REQIsControllerRegistered, \
-    REQRegisterControllerClient, REQRemoveControllerClient, REQIsClientAssociated, \
-    RPLClientNotRegistered, RPLClientAlreadyRegistered, \
+    REQRegisterControllerClient, REQRemoveControllerClient, REQIsClientAssociated, REQClientInformation, \
+    RPLClientNotRegistered, RPLClientAlreadyRegistered, RPLClientInformation, \
     RPLIPv4InfoAlreadyRegistered, RPLIPv6InfoAlreadyRegistered, \
     RPLAfirmative, RPLNegative
 
@@ -53,19 +53,19 @@ def zmq_context_initialize(ip, port):
 
         while True:
             try:
-                msg = pickle.loads(blosc.decompress(await socket.recv(), as_bytearray=True))
+                msg = loads(blosc.decompress(await socket.recv(), as_bytearray=True))
                 __log.debug("Message received: {:s}".format(str(msg)))
                 if isinstance(msg, BaseMessage):
                     reply = await __process_request(msg)
-                    await socket.send(blosc.compress(pickle.dumps(reply)))
+                    await socket.send(blosc.compress(dumps(reply)))
                 else:
                     error_str = "Invalid message received: {:s}. Closing socket...".format(repr(msg))
                     __log.error(error_str)
-                    await socket.send(blosc.compress(pickle.dumps(RPLGenericError(error_str))))
+                    await socket.send(blosc.compress(dumps(RPLGenericError(error_str))))
                     break
 
             except Exception as ex:
-                await socket.send(blosc.compress(pickle.dumps(RPLGenericError(str(ex)))))
+                await socket.send(blosc.compress(dumps(RPLGenericError(str(ex)))))
 
         __log.warning("ZMQ context is shutting down...")
     loop.create_task(recv_and_process())
@@ -162,6 +162,11 @@ async def __req_is_client_associated(request):
     return RPLNegative()
 
 
+async def __req_client_information(request):
+    client_info = await database.query_client_info(request.client_id, request.controller_id)
+    return RPLClientInformation(**client_info)
+
+
 async def __req_unregister_all_clients(request):
     await database.remove_all_clients(request.controller_id)
     return RPLSuccess()
@@ -177,6 +182,7 @@ _requests = {
     REQRegisterControllerClient: __req_register_controller_client,
     REQRemoveControllerClient: __req_remove_controller_client,
     REQIsClientAssociated: __req_is_client_associated,
+    REQClientInformation: __req_client_information,
     REQUpdateControllerInfo: __req_update_controller_info,
     REQUnregisterAllClients: __req_unregister_all_clients
 }
