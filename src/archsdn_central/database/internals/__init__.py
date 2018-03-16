@@ -10,7 +10,8 @@ __all__ = ["init_database",
            "register_client",
            "client_info",
            "remove_client",
-           "is_client_registered"
+           "is_client_registered",
+            "query_address_info"
            ]
 
 from .generics import init_database, close_database, info
@@ -25,4 +26,5 @@ from .client import \
     register as register_client, \
     info as client_info, \
     remove as remove_client, \
-    exists as is_client_registered
+    exists as is_client_registered, \
+    query_address_info

@@ -8,7 +8,7 @@ from ipaddress import IPv4Network, IPv6Network, IPv4Address, IPv6Address
 from archsdn_central.helpers import logger_module_name
 
 from .shared_data import GetConnector
-from .exceptions import ControllerNotRegistered, ClientNotRegistered, ClientAlreadyRegistered
+from .exceptions import ControllerNotRegistered, ClientNotRegistered, ClientAlreadyRegistered, NoResultsAvailable
 
 __log = logging.getLogger(logger_module_name(__file__))
 
@@ -176,4 +176,48 @@ def exists(client_id, controller):
         if db_cursor.fetchone()[0] == 0:
             return False
         return True
+
+
+def query_address_info(ipv4=None, ipv6=None):
+    assert GetConnector(), "database not initialized"
+    assert not GetConnector().in_transaction, "database with active transaction"
+    assert not ((ipv4 is None) and (ipv6 is None)), "ipv4 and ipv6 cannot be null at the same time"
+    assert isinstance(ipv4, IPv4Address) or ipv4 is None, "ipv4 is invalid"
+    assert isinstance(ipv6, IPv6Address) or ipv6 is None, "ipv6 is invalid"
+
+    with closing(GetConnector().cursor()) as db_cursor:
+        db_cursor.execute(
+            "SELECT uuid, name, registration_date FROM controllers_view WHERE (ipv4 == ?) OR (ipv6 == ?)",
+            (
+                int(ipv4) if ipv4 else None,
+                ipv6.packed if ipv6 else None
+            )
+        )
+
+        res = db_cursor.fetchone()
+        if res:
+            return {
+                "controller_id": UUID(bytes=res[0]),
+                "client_id": 0,
+                "name": res[1],
+                "registration_date": time.localtime(res[2])
+            }
+
+        db_cursor.execute(
+            "SELECT id, controller, name, registration_date FROM clients_view WHERE (ipv4 == ?) OR (ipv6 == ?)",
+            (
+                int(ipv4) if ipv4 else None,
+                ipv6.packed if ipv6 else None
+            )
+        )
+
+        res = db_cursor.fetchone()
+        if res:
+            return {
+                "client_id": res[0],
+                "controller_id": UUID(bytes=res[1]),
+                "name": res[2],
+                "registration_date": time.localtime(res[3])
+            }
+        raise NoResultsAvailable()
 

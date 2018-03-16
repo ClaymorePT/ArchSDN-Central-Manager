@@ -198,6 +198,38 @@ class ControllersTests(unittest.TestCase):
             loop.run_until_complete(fut)
             fut.result()
 
+    def test_query_address_info(self):
+        fut = database.register_controller(self.uuid, ipv4_info=self.ipv4_info, ipv6_info=self.ipv6_info)
+        loop.run_until_complete(fut)
+        fut = database.query_controller_info(self.uuid)
+        loop.run_until_complete(fut)
+        controller_info = fut.result()
+        fut = database.query_address_info(ipv4=controller_info["ipv4"])
+        loop.run_until_complete(fut)
+        address_info = fut.result()
+        self.assertEqual(address_info["controller_id"], self.uuid)
+        self.assertEqual(address_info["client_id"], 0)
+        self.assertEqual(address_info["name"], ".".join((str(self.uuid), 'controller', 'archsdn')))
+        self.assertLessEqual(address_info['registration_date'], time.localtime(time.time()))
+        fut = database.query_address_info(ipv6=controller_info["ipv6"])
+        loop.run_until_complete(fut)
+        address_info = fut.result()
+        self.assertEqual(address_info["controller_id"], self.uuid)
+        self.assertEqual(address_info["client_id"], 0)
+        self.assertEqual(address_info["name"], ".".join((str(self.uuid), 'controller', 'archsdn')))
+        self.assertLessEqual(address_info['registration_date'], time.localtime(time.time()))
+
+    def test_query_address_info_no_results(self):
+        with self.assertRaises(database.NoResultsAvailable):
+            fut = database.query_address_info(ipv4=IPv4Address('192.168.1.2'))
+            loop.run_until_complete(fut)
+            fut.result()
+
+        with self.assertRaises(database.NoResultsAvailable):
+            fut = database.query_address_info(ipv6=IPv6Address(1))
+            loop.run_until_complete(fut)
+            fut.result()
+
 
 class ClientsTests(unittest.TestCase):
     def setUp(self):
@@ -264,4 +296,37 @@ class ClientsTests(unittest.TestCase):
             fut = database.remove_client(self.client_id, self.controller_uuid)
             loop.run_until_complete(fut)
             fut.result()
+
+    def test_query_address_info(self):
+        fut = database.register_client(self.client_id, self.controller_uuid)
+        loop.run_until_complete(fut)
+        fut = database.query_client_info(self.client_id, self.controller_uuid)
+        loop.run_until_complete(fut)
+        client_info = fut.result()
+        fut = database.query_address_info(ipv4=client_info["ipv4"])
+        loop.run_until_complete(fut)
+        address_info = fut.result()
+        self.assertEqual(address_info["controller_id"], self.controller_uuid)
+        self.assertEqual(address_info["client_id"], self.client_id)
+        self.assertEqual(address_info["name"], ".".join((str(self.client_id), str(self.controller_uuid), "archsdn")))
+        self.assertLessEqual(address_info['registration_date'], time.localtime(time.time()))
+        fut = database.query_address_info(ipv6=client_info["ipv6"])
+        loop.run_until_complete(fut)
+        address_info = fut.result()
+        self.assertEqual(address_info["controller_id"], self.controller_uuid)
+        self.assertEqual(address_info["client_id"], self.client_id)
+        self.assertEqual(address_info["name"], ".".join((str(self.client_id), str(self.controller_uuid), "archsdn")))
+        self.assertLessEqual(address_info['registration_date'], time.localtime(time.time()))
+
+    def test_query_address_info_no_results(self):
+        with self.assertRaises(database.NoResultsAvailable):
+            fut = database.query_address_info(ipv4=IPv4Address("10.0.0.2"))
+            loop.run_until_complete(fut)
+            fut.result()
+
+        with self.assertRaises(database.NoResultsAvailable):
+            fut = database.query_address_info(ipv6=IPv6Address('fd61:7263:6873:646e::2'))
+            loop.run_until_complete(fut)
+            fut.result()
+
 

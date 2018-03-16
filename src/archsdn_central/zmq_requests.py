@@ -23,7 +23,8 @@ from archsdn_central.zmq_messages import BaseMessage, \
     REQRegisterControllerClient, REQRemoveControllerClient, REQIsClientAssociated, REQClientInformation, \
     RPLClientNotRegistered, RPLClientAlreadyRegistered, RPLClientInformation, \
     RPLIPv4InfoAlreadyRegistered, RPLIPv6InfoAlreadyRegistered, \
-    RPLAfirmative, RPLNegative
+    REQAddressInfo, RPLAddressInfo, \
+    RPLAfirmative, RPLNegative, RPLNoResultsAvailable
 
 
 # Tell asyncio to use zmq's eventloop (necessary if pyzmq is < than 17)
@@ -100,6 +101,9 @@ async def __process_request(request):
     except database.ClientNotRegistered:
         return RPLClientNotRegistered()
 
+    except database.NoResultsAvailable:
+        return RPLNoResultsAvailable()
+
     except Exception as ex:
         custom_logging_callback(__log, logging.ERROR, *sys.exc_info())
         if sys.flags.debug:
@@ -172,6 +176,11 @@ async def __req_unregister_all_clients(request):
     return RPLSuccess()
 
 
+async def __req_address_information(request):
+    address_info = await database.query_address_info(request.ipv4, request.ipv6)
+    return RPLAddressInfo(**address_info)
+
+
 _requests = {
     REQLocalTime: __req_local_time,
     REQCentralNetworkPolicies: __req_central_network_policies,
@@ -184,5 +193,6 @@ _requests = {
     REQIsClientAssociated: __req_is_client_associated,
     REQClientInformation: __req_client_information,
     REQUpdateControllerInfo: __req_update_controller_info,
-    REQUnregisterAllClients: __req_unregister_all_clients
+    REQUnregisterAllClients: __req_unregister_all_clients,
+    REQAddressInfo: __req_address_information
 }

@@ -22,7 +22,8 @@ from archsdn_central.zmq_messages import \
     REQRegisterControllerClient, REQRemoveControllerClient, REQIsClientAssociated, REQUnregisterAllClients, \
     REQClientInformation, RPLClientInformation, \
     RPLClientAlreadyRegistered, RPLClientNotRegistered, \
-    RPLAfirmative, RPLNegative
+    REQAddressInfo, RPLAddressInfo, \
+    RPLAfirmative, RPLNegative, RPLNoResultsAvailable
 
 
 mac_eui48.word_sep = ":"
@@ -231,6 +232,32 @@ class ControllerRegistration(unittest.TestCase):
         self.socket.send(REQUpdateControllerInfo(self.uuid, ipv6_info=(IPv6Address(1), 12345)))
         self.assertIsInstance(self.socket.recv(), RPLIPv6InfoAlreadyRegistered)
 
+    def test_query_address_info(self):
+        self.socket.send(REQRegisterController(self.uuid, self.ipv4_info, self.ipv6_info))
+        self.assertIsInstance(self.socket.recv(), RPLSuccess)
+
+        self.socket.send(REQAddressInfo(ipv4=IPv4Address("192.168.1.1")))
+        msg = self.socket.recv()
+        self.assertIsInstance(msg, RPLAddressInfo)
+        self.assertEqual(msg.controller_id, self.uuid)
+        self.assertEqual(msg.client_id, 0)
+        self.assertEqual(msg.name, ".".join((str(self.uuid), 'controller', 'archsdn')))
+        self.assertLessEqual(msg.registration_date, localtime())
+
+        self.socket.send(REQAddressInfo(ipv6=IPv6Address(1)))
+        msg = self.socket.recv()
+        self.assertIsInstance(msg, RPLAddressInfo)
+        self.assertEqual(msg.controller_id, self.uuid)
+        self.assertEqual(msg.client_id, 0)
+        self.assertEqual(msg.name, ".".join((str(self.uuid), 'controller', 'archsdn')))
+        self.assertLessEqual(msg.registration_date, localtime())
+
+    def test_query_address_info_no_results(self):
+        self.socket.send(REQAddressInfo(ipv4=IPv4Address("192.168.1.1")))
+        self.assertIsInstance(self.socket.recv(), RPLNoResultsAvailable)
+        self.socket.send(REQAddressInfo(ipv6=IPv6Address(1)))
+        self.assertIsInstance(self.socket.recv(), RPLNoResultsAvailable)
+
 
 class ClientsRegistration(unittest.TestCase):
     def setUp(self):
@@ -312,3 +339,29 @@ class ClientsRegistration(unittest.TestCase):
         self.socket.send(REQUnregisterAllClients(self.uuid))
         msg = self.socket.recv()
         self.assertIsInstance(msg, RPLSuccess, str(msg))
+
+    def test_query_address_info(self):
+        self.socket.send(REQRegisterControllerClient(self.uuid, self.client_id))
+        self.assertIsInstance(self.socket.recv(), RPLSuccess)
+
+        self.socket.send(REQAddressInfo(ipv4=IPv4Address("10.0.0.2")))
+        msg = self.socket.recv()
+        self.assertIsInstance(msg, RPLAddressInfo)
+        self.assertEqual(msg.controller_id, self.uuid)
+        self.assertEqual(msg.client_id, self.client_id)
+        self.assertEqual(msg.name, ".".join((str(self.client_id), str(self.uuid), 'archsdn')))
+        self.assertLessEqual(msg.registration_date, localtime())
+
+        self.socket.send(REQAddressInfo(ipv6=IPv6Address("fd61:7263:6873:646e::2")))
+        msg = self.socket.recv()
+        self.assertIsInstance(msg, RPLAddressInfo)
+        self.assertEqual(msg.controller_id, self.uuid)
+        self.assertEqual(msg.client_id, self.client_id)
+        self.assertEqual(msg.name, ".".join((str(self.client_id), str(self.uuid), 'archsdn')))
+        self.assertLessEqual(msg.registration_date, localtime())
+
+    def test_query_address_info_no_results(self):
+        self.socket.send(REQAddressInfo(ipv4=IPv4Address("10.0.0.2")))
+        self.assertIsInstance(self.socket.recv(), RPLNoResultsAvailable)
+        self.socket.send(REQAddressInfo(ipv6=IPv6Address("fd61:7263:6873:646e::2")))
+        self.assertIsInstance(self.socket.recv(), RPLNoResultsAvailable)
