@@ -112,7 +112,17 @@ def info():
                 "ipv4_service": IPv4Address(res[2]),
                 "ipv6_service": IPv6Address(res[3]),
                 "mac_service": EUI(res[4]),
-                "registration_date": localtime(res[5])
+                "registration_date": localtime(res[5]),
+                "service_reservation_policies": {
+                    "ICMP4": {
+                        "bandwidth": 100
+                    },
+                    "IPv4": {
+                        "TCP": {
+                            80: 1000
+                        }
+                    }
+                }
             }
     except sqlite3.Warning as ex:
         __log.error(str(ex))

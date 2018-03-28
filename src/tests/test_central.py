@@ -80,11 +80,16 @@ class DefaultInitAndClose(unittest.TestCase):
         self.assertIsInstance(msg.ipv6_service, IPv6Address)
         self.assertIsInstance(msg.mac_service, EUI)
         self.assertIsInstance(msg.registration_date, struct_time)
+        self.assertIsInstance(msg.service_reservation_policies, dict)
         self.assertEqual(msg.ipv4_network, IPv4Network("10.0.0.0/8"))
         self.assertEqual(msg.ipv6_network, IPv6Network("fd61:7263:6873:646e::0/64"))
         self.assertEqual(msg.ipv4_service, IPv4Address("10.0.0.1"))
         self.assertEqual(msg.ipv6_service, IPv6Address("fd61:7263:6873:646e::1"))
         self.assertEqual(msg.mac_service, EUI("FE:FF:FF:FF:FF:FF"))
+        self.assertEqual(
+            msg.service_reservation_policies,
+            {"ICMP4": {"bandwidth": 100},"IPv4": {"TCP": {80: 1000}}}
+        )
         self.assertLessEqual(msg.registration_date, localtime())
 
 
