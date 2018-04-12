@@ -3,7 +3,7 @@ import sqlite3
 import pathlib
 from pathlib import Path
 from ipaddress import IPv4Network, IPv6Network, IPv4Address, IPv6Address
-from time import localtime
+from time import localtime, strftime, gmtime
 from contextlib import closing
 from netaddr import EUI
 
@@ -68,7 +68,8 @@ def init_database(
         __log.debug("Central Database initialised on the {:s}, located in {:s}, "
                    "using ipv4 network {:s}, ipv6 network {:s}, "
                    "service ipv4 {:s}, service ipv6 {:s}, service mac {:s}.".format(
-                str(creation_date), str(location),
+                strftime('%Y/%m/%d %H:%M:%S (%Z)', gmtime(creation_date)),
+                "memory" if location == ':memory:' else str(location),
                 str(ipv4_network), str(ipv6_network),
                 str(ipv4_address),str(ipv6_address),
                 str(EUI("FE:FF:FF:FF:FF:FF"))
@@ -111,7 +112,17 @@ def info():
                 "ipv4_service": IPv4Address(res[2]),
                 "ipv6_service": IPv6Address(res[3]),
                 "mac_service": EUI(res[4]),
-                "registration_date": localtime(res[5])
+                "registration_date": localtime(res[5]),
+                "service_reservation_policies": {
+                    "ICMP4": {
+                        "bandwidth": 100
+                    },
+                    "IPv4": {
+                        "TCP": {
+                            80: 1000
+                        }
+                    }
+                }
             }
     except sqlite3.Warning as ex:
         __log.error(str(ex))

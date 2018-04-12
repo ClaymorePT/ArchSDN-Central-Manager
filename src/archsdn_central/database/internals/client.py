@@ -1,14 +1,14 @@
 import logging
 import sqlite3
-import uuid
 import time
+from uuid import UUID
 from contextlib import closing
 from ipaddress import IPv4Network, IPv6Network, IPv4Address, IPv6Address
 
 from archsdn_central.helpers import logger_module_name
 
 from .shared_data import GetConnector
-from .exceptions import ControllerNotRegistered, ClientNotRegistered, ClientAlreadyRegistered
+from .exceptions import ControllerNotRegistered, ClientNotRegistered, ClientAlreadyRegistered, NoResultsAvailable
 
 __log = logging.getLogger(logger_module_name(__file__))
 
@@ -18,7 +18,7 @@ def register(client_id, controller_uuid):
     assert not GetConnector().in_transaction, "database with active transaction"
     assert isinstance(client_id, int), "client_id expected to be an instance of type int"
     assert client_id >= 0, "client_id cannot be negative"
-    assert isinstance(controller_uuid, uuid.UUID), "controller expected to be an instance of type uuid.UUID"
+    assert isinstance(controller_uuid, UUID), "controller expected to be an instance of type uuid.UUID"
 
     try:
         database_connector = GetConnector()
@@ -90,7 +90,7 @@ def register(client_id, controller_uuid):
                               )
             database_connector.commit()
             assert not GetConnector().in_transaction, "database with active transaction"
-            return (ipv4_address, ipv6_address, hostname)
+            return
 
     except sqlite3.IntegrityError as ex:
         __log.error(str(ex))
@@ -103,72 +103,28 @@ def register(client_id, controller_uuid):
         raise ex
 
 
-def info(location=None, ipv4=None, ipv6=None):
+def info(client_id, controller_id):
     assert GetConnector(), "database not initialized"
     assert not GetConnector().in_transaction, "database with active transaction"
-    assert isinstance(location, (tuple, type(None))), "location type is not tuple or None"
-    assert location is None or len(location) == 2, "location length is not 2"
-    assert location is None or isinstance(location[0], uuid.UUID), "location 1st element type is not UUID"
-    assert location is None or isinstance(location[1], int), "location 2nd element type is not int"
-    assert location is None or location[1] is None or location[1] >= 0, "location 2nd element cannot be negative"
-    assert isinstance(ipv4, (IPv4Address, type(None))), "ipv4 type is not IPv4Address or None"
-    assert isinstance(ipv6, (IPv6Address, type(None))), "ipv6 type is not IPv6Address or None"
-    assert sum(tuple(
-        (i is not None for i in (location, ipv4, ipv6)))) == 1, \
-        "can only use one argument (location, ipv4 and ipv6) at a time"
+    assert isinstance(controller_id, UUID), \
+        "uuid is not a uuid.UUID object instance: {:s}".format(repr(controller_id))
+    assert isinstance(client_id, int), "client_id is not a int object instance: {:s}".format(repr(client_id))
+    assert 0 < client_id < 0xFFFFFFFF, "client_id value is invalid: value {:d}".format(client_id)
 
     with closing(GetConnector().cursor()) as db_cursor:
-        if location:
-            controller = location[0]
-            client_id = location[1]
+        db_cursor.execute("SELECT ipv4, ipv6, name, registration_date FROM clients_view WHERE "
+                          "(clients_view.id == ?) AND (clients_view.controller == ?)", (client_id, controller_id.bytes))
 
-            db_cursor.execute("SELECT ipv4, ipv6, name, registration_date FROM clients_view WHERE "
-                              "(clients_view.id == ?) AND (clients_view.controller == ?)", (client_id, controller.bytes))
+        res = db_cursor.fetchone()
+        if not res:
+            raise ClientNotRegistered()
 
-            res = db_cursor.fetchone()
-            if not res:
-                raise ClientNotRegistered()
-
-            return {
-                "ipv4": IPv4Address(res[0]) if res[0] else None,
-                "ipv6": IPv6Address(res[1]) if res[1] else None,
-                "name": res[2],
-                "registration_date": time.localtime(res[3]),
-            }
-
-        elif ipv4:
-            db_cursor.execute("SELECT id, controller, ipv6, name, registration_date FROM clients_view WHERE "
-                              "(clients_view.ipv4 == ?)", (int(ipv4),))
-
-            res = db_cursor.fetchone()
-            if not res:
-                raise ClientNotRegistered()
-
-            return {
-                "client_id": res[0],
-                "controller_id": uuid.UUID(bytes=res[1]),
-                "ipv6": IPv6Address(res[2]) if res[2] else None,
-                "name": res[3],
-                "registration_date": time.localtime(res[4]),
-            }
-
-        elif ipv6:
-            db_cursor.execute("SELECT id, controller, ipv4, name, registration_date FROM clients_view WHERE "
-                              "(clients_view.ipv6 == ?)", (ipv6.packed,))
-
-            res = db_cursor.fetchone()
-            if not res:
-                raise ClientNotRegistered()
-
-            return {
-                "client_id": res[0],
-                "controller_id": uuid.UUID(bytes=res[1]),
-                "ipv4": IPv4Address(res[2]) if res[2] else None,
-                "name": res[3],
-                "registration_date": time.localtime(res[4]),
-            }
-
-
+        return {
+            "ipv4": IPv4Address(res[0]) if res[0] else None,
+            "ipv6": IPv6Address(res[1]) if res[1] else None,
+            "name": res[2],
+            "registration_date": time.localtime(res[3]),
+        }
 
 
 def remove(client_id, controller):
@@ -176,7 +132,7 @@ def remove(client_id, controller):
     assert not GetConnector().in_transaction, "database with active transaction"
     assert isinstance(client_id, int), "clientid expected to be an instance of type int"
     assert client_id >= 0, "clientid cannot be negative"
-    assert isinstance(controller, uuid.UUID), "controller expected to be an instance of type uuid.UUID"
+    assert isinstance(controller, UUID), "controller expected to be an instance of type uuid.UUID"
 
     try:
         database_connector = GetConnector()
@@ -206,7 +162,7 @@ def exists(client_id, controller):
     assert not GetConnector().in_transaction, "database with active transaction"
     assert isinstance(client_id, int), "clientid expected to be an instance of type int"
     assert client_id >= 0, "clientid cannot be negative"
-    assert isinstance(controller, uuid.UUID), "controller expected to be an instance of type uuid.UUID"
+    assert isinstance(controller, UUID), "controller expected to be an instance of type uuid.UUID"
 
     with closing(GetConnector().cursor()) as db_cursor:
         db_cursor.execute("SELECT id FROM controllers WHERE uuid == ?", (controller.bytes,))
@@ -220,4 +176,48 @@ def exists(client_id, controller):
         if db_cursor.fetchone()[0] == 0:
             return False
         return True
+
+
+def query_address_info(ipv4=None, ipv6=None):
+    assert GetConnector(), "database not initialized"
+    assert not GetConnector().in_transaction, "database with active transaction"
+    assert not ((ipv4 is None) and (ipv6 is None)), "ipv4 and ipv6 cannot be null at the same time"
+    assert isinstance(ipv4, IPv4Address) or ipv4 is None, "ipv4 is invalid"
+    assert isinstance(ipv6, IPv6Address) or ipv6 is None, "ipv6 is invalid"
+
+    with closing(GetConnector().cursor()) as db_cursor:
+        db_cursor.execute(
+            "SELECT uuid, name, registration_date FROM controllers_view WHERE (ipv4 == ?) OR (ipv6 == ?)",
+            (
+                int(ipv4) if ipv4 else None,
+                ipv6.packed if ipv6 else None
+            )
+        )
+
+        res = db_cursor.fetchone()
+        if res:
+            return {
+                "controller_id": UUID(bytes=res[0]),
+                "client_id": 0,
+                "name": res[1],
+                "registration_date": time.localtime(res[2])
+            }
+
+        db_cursor.execute(
+            "SELECT id, controller, name, registration_date FROM clients_view WHERE (ipv4 == ?) OR (ipv6 == ?)",
+            (
+                int(ipv4) if ipv4 else None,
+                ipv6.packed if ipv6 else None
+            )
+        )
+
+        res = db_cursor.fetchone()
+        if res:
+            return {
+                "client_id": res[0],
+                "controller_id": UUID(bytes=res[1]),
+                "name": res[2],
+                "registration_date": time.localtime(res[3])
+            }
+        raise NoResultsAvailable()
 

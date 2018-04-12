@@ -51,10 +51,10 @@ def register(uuid, ipv4_info=None, ipv6_info=None):
 
             db_cursor.execute("INSERT INTO controllers(name, ipv4, ipv6, uuid) "
                               "VALUES (?,?,?,?)", (name_id, ipv4_id, ipv6_id, uuid.bytes))
-            host_id = db_cursor.lastrowid
+
             database_connector.commit()
             assert not GetConnector().in_transaction, "database with active transaction"
-            return host_id
+            return
 
     except sqlite3.IntegrityError as ex:
         __log.error(str(ex))
