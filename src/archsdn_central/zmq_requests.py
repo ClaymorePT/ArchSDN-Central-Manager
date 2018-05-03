@@ -27,10 +27,6 @@ from archsdn_central.zmq_messages import BaseMessage, \
     RPLAfirmative, RPLNegative, RPLNoResultsAvailable
 
 
-# Tell asyncio to use zmq's eventloop (necessary if pyzmq is < than 17)
-if zmq.pyzmq_version_info()[0] < 17:
-    zmq.asyncio.install()
-
 __context = None
 __log = logging.getLogger(logger_module_name(__file__))
 __loop = asyncio.get_event_loop()

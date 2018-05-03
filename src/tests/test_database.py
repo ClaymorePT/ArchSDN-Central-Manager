@@ -335,3 +335,33 @@ class ClientsTests(unittest.TestCase):
             fut.result()
 
 
+class DualControllersClientsTests(unittest.TestCase):
+    def setUp(self):
+        self.controller_uuid_1 = uuid.UUID(int=1)
+        self.controller_uuid_2 = uuid.UUID(int=2)
+        self.client_id = 100
+        fut = database.initialise(location=database_location, ipv4_network=IPv4Network("10.0.0.0"))
+        loop.run_until_complete(fut)
+        fut = database.register_controller(
+            self.controller_uuid_1,
+            ipv4_info=(IPv4Address("192.168.1.1"), 12345),
+            ipv6_info=(IPv6Address(1), 12345)
+        )
+        loop.run_until_complete(fut)
+        fut = database.register_controller(
+            self.controller_uuid_2,
+            ipv4_info=(IPv4Address("192.168.1.2"), 12345),
+            ipv6_info=(IPv6Address(2), 12345)
+        )
+        loop.run_until_complete(fut)
+
+    def tearDown(self):
+        fut = database.close()
+        loop.run_until_complete(fut)
+        database_location.unlink()
+
+    def test_register_dual_client_dual_controller(self):
+        fut = database.register_client(self.client_id, self.controller_uuid_1)
+        loop.run_until_complete(fut)
+        fut = database.register_client(self.client_id, self.controller_uuid_2)
+        loop.run_until_complete(fut)
