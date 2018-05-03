@@ -10,20 +10,19 @@ BEGIN TRANSACTION;
 DROP TABLE IF EXISTS clients;
 
 CREATE TABLE clients (
-  id                INTEGER  PRIMARY KEY ASC ON CONFLICT ROLLBACK,
-  controller                 REFERENCES controllers (id)
-                             NOT NULL,
-  ipv4                       REFERENCES clients_ipv4s (id),
-  ipv6                       REFERENCES clients_ipv6s (id),
-  name                       REFERENCES names (id),
-  registration_date DATETIME DEFAULT (CAST (strftime('%s', 'now') AS INTEGER) ),
-  CONSTRAINT client_unique_id UNIQUE (
-    id ASC,
-    controller COLLATE BINARY ASC
-  )
-  ON CONFLICT ROLLBACK
-)
-WITHOUT ROWID;
+    id                INTEGER,
+    controller                 REFERENCES controllers (id)
+                               NOT NULL,
+    ipv4                       REFERENCES clients_ipv4s (id),
+    ipv6                       REFERENCES clients_ipv6s (id),
+    name                       REFERENCES names (id),
+    registration_date DATETIME DEFAULT (CAST (strftime('%s', 'now') AS INTEGER) ),
+    CONSTRAINT client_unique_id UNIQUE (
+        id ASC,
+        controller COLLATE BINARY ASC
+    )
+    ON CONFLICT ROLLBACK
+);
 
 
 -- Table: clients_ipv4s
