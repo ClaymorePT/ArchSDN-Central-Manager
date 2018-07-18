@@ -21,7 +21,7 @@ def requirements_file_to_list(fn='requirements.txt'):
 
 setup(
     name='archsdn_central',
-    version='1.2.0',
+    version='1.3.0',
     packages=find_packages('src'),
     package_dir={'': 'src'},
     package_data={'': ['*.sql']},
