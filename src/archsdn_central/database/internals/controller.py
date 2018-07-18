@@ -86,9 +86,9 @@ def infos(uuid):
                 assert not GetConnector().in_transaction, "database with active transaction"
                 raise ControllerNotRegistered()
 
-            return {'ipv4': IPv4Address(res[0]) if res[0] else None,
+            return {'ipv4': IPv4Address(res[0]) if res[0] is not None else None,
                     'ipv4_port': res[1],
-                    'ipv6': IPv6Address(res[2]) if res[2] else None,
+                    'ipv6': IPv6Address(res[2]) if res[2] is not None else None,
                     'ipv6_port': res[3],
                     'name': res[4],
                     'registration_date': time.localtime(res[5]),

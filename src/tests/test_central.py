@@ -145,6 +145,34 @@ class ControllerRegistration(unittest.TestCase):
         self.assertEqual(msg.name, ".".join((str(self.uuid), 'controller', 'archsdn')))
         self.assertLessEqual(msg.registration_date, localtime())
 
+    def test_query_controller_information_only_ipv4(self):
+        self.socket.send(REQRegisterController(self.uuid, ipv4_info=self.ipv4_info))
+        self.assertIsInstance(self.socket.recv(), RPLSuccess)
+        self.socket.send(REQQueryControllerInfo(self.uuid))
+        msg = self.socket.recv()
+        self.assertIsInstance(msg, RPLControllerInformation)
+
+        self.assertEqual(msg.ipv4, self.ipv4_info[0])
+        self.assertEqual(msg.ipv4_port, self.ipv4_info[1])
+        self.assertEqual(msg.ipv6, None)
+        self.assertEqual(msg.ipv6_port, None)
+        self.assertEqual(msg.name, ".".join((str(self.uuid), 'controller', 'archsdn')))
+        self.assertLessEqual(msg.registration_date, localtime())
+
+    def test_query_controller_information_only_ipv6(self):
+        self.socket.send(REQRegisterController(self.uuid, ipv6_info=self.ipv6_info))
+        self.assertIsInstance(self.socket.recv(), RPLSuccess)
+        self.socket.send(REQQueryControllerInfo(self.uuid))
+        msg = self.socket.recv()
+        self.assertIsInstance(msg, RPLControllerInformation)
+
+        self.assertEqual(msg.ipv4, None)
+        self.assertEqual(msg.ipv4_port, None)
+        self.assertEqual(msg.ipv6, self.ipv6_info[0])
+        self.assertEqual(msg.ipv6_port, self.ipv6_info[1])
+        self.assertEqual(msg.name, ".".join((str(self.uuid), 'controller', 'archsdn')))
+        self.assertLessEqual(msg.registration_date, localtime())
+
     def test_remove_controller(self):
         self.socket.send(REQRegisterController(self.uuid, self.ipv4_info, self.ipv6_info))
         self.assertIsInstance(self.socket.recv(), RPLSuccess)
@@ -370,3 +398,42 @@ class ClientsRegistration(unittest.TestCase):
         self.assertIsInstance(self.socket.recv(), RPLNoResultsAvailable)
         self.socket.send(REQAddressInfo(ipv6=IPv6Address("fd61:7263:6873:646e::2")))
         self.assertIsInstance(self.socket.recv(), RPLNoResultsAvailable)
+
+
+class ControllerRegistrationCornerCases(unittest.TestCase):
+    def setUp(self):
+        self.central = openPuppetProcess()
+        self.socket = ZMQ_Puppet_Socket()
+
+    def tearDown(self):
+        self.central.send_signal(signal.SIGINT)
+        self.central.wait()
+        database_location.unlink()
+
+    def test_query_dual_controller_information_zeros(self):
+        self.socket.send(REQRegisterController(UUID(int=1), (IPv4Address("0.0.0.0"), 54321)))
+        self.assertIsInstance(self.socket.recv(), RPLSuccess)
+        self.socket.send(REQRegisterController(UUID(int=2), (IPv4Address("0.0.0.0"), 54322)))
+        self.assertIsInstance(self.socket.recv(), RPLSuccess)
+
+        self.socket.send(REQQueryControllerInfo(UUID(int=1)))
+        msg = self.socket.recv()
+        self.assertIsInstance(msg, RPLControllerInformation)
+
+        self.assertEqual(msg.ipv4, IPv4Address("0.0.0.0"))
+        self.assertEqual(msg.ipv4_port, 54321)
+        self.assertEqual(msg.ipv6, None)
+        self.assertEqual(msg.ipv6_port, None)
+        self.assertEqual(msg.name, ".".join((str(UUID(int=1)), 'controller', 'archsdn')))
+        self.assertLessEqual(msg.registration_date, localtime())
+
+        self.socket.send(REQQueryControllerInfo(UUID(int=2)))
+        msg = self.socket.recv()
+        self.assertIsInstance(msg, RPLControllerInformation)
+
+        self.assertEqual(msg.ipv4, IPv4Address("0.0.0.0"))
+        self.assertEqual(msg.ipv4_port, 54322)
+        self.assertEqual(msg.ipv6, None)
+        self.assertEqual(msg.ipv6_port, None)
+        self.assertEqual(msg.name, ".".join((str(UUID(int=2)), 'controller', 'archsdn')))
+        self.assertLessEqual(msg.registration_date, localtime())
