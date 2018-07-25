@@ -30,7 +30,8 @@ sys.excepthook = (lambda tp, val, tb: custom_logging_callback(logging.getLogger(
 
 
 # Initialize logger for this module
-__log_format = '[{asctime:^s}][{levelname:^8s}][{name:s}|{funcName:s}|{lineno:d}]: {message:s}'
+__log_format = '[{asctime:^s}][{levelname:^8s}]: {message:s}'
+__log_format_debug = '[{asctime:^s}][{levelname:^8s}][{name:s}|{funcName:s}|{lineno:d}]: {message:s}'
 __log_datefmt = '%Y/%m/%d|%H:%M:%S.%f (%Z)'
 __log = logging.getLogger(logger_module_name(__file__))
 
@@ -50,7 +51,7 @@ def main():
 
         parsed_args = parse_arguments()
         if sys.flags.debug:
-            logging.basicConfig(format=__log_format, datefmt=__log_datefmt, style='{', level=logging.DEBUG)
+            logging.basicConfig(format=__log_format_debug, datefmt=__log_datefmt, style='{', level=logging.DEBUG)
         else:
             logging.basicConfig(format=__log_format, datefmt=__log_datefmt, style='{', level=parsed_args.logLevel)
 

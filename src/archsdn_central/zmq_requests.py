@@ -51,9 +51,10 @@ def zmq_context_initialize(ip, port):
         while True:
             try:
                 msg = loads(blosc.decompress(await socket.recv(), as_bytearray=True))
-                __log.debug("Message received: {:s}".format(str(msg)))
+                __log.info("Request received: {:s}".format(str(msg)))
                 if isinstance(msg, BaseMessage):
                     reply = await __process_request(msg)
+                    __log.info("Replying request with: {:s}".format(str(reply)))
                     await socket.send(blosc.compress(dumps(reply)))
                 else:
                     error_str = "Invalid message received: {:s}. Closing socket...".format(repr(msg))
@@ -62,6 +63,7 @@ def zmq_context_initialize(ip, port):
                     break
 
             except Exception as ex:
+                custom_logging_callback(__log, logging.CRITICAL, *sys.exc_info())
                 await socket.send(blosc.compress(dumps(RPLGenericError(str(ex)))))
 
         __log.warning("ZMQ context is shutting down...")

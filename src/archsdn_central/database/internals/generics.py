@@ -33,6 +33,10 @@ def init_database(
 
     if isinstance(location, Path):
         location = str(location.absolute())
+        if location.exists():
+            __log.info("Database file exists at {:s}. Loading it...".format(str(location)))
+    elif location == ":memory:":
+        __log.info("Database will be instantiated in memory.")
 
     database_connector = sqlite3.connect(location, isolation_level='IMMEDIATE')
     SetConnector(database_connector)
@@ -42,7 +46,7 @@ def init_database(
     db_cursor.execute("SELECT count(*) FROM sqlite_master WHERE type == 'table' AND name == 'configurations';")
     res = db_cursor.fetchone()[0]
     if res == 0:
-        __log.info("Database does not exist. Creating...")
+        __log.info("Creating database structure...")
         with open(db_sql_location, "r") as fp:
             database_connector.executescript("".join(fp.readlines()))
 
@@ -75,10 +79,6 @@ def init_database(
                 str(EUI("FE:FF:FF:FF:FF:FF"))
             )
         )
-    else:
-        __log.info("Database exists! Using it...")
-
-
 
 
 def close_database():
