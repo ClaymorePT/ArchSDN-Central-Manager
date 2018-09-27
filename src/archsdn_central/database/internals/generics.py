@@ -32,9 +32,10 @@ def init_database(
         "ipv6_network expected to be a private network address"
 
     if isinstance(location, Path):
-        location = str(location.absolute())
         if location.exists():
-            __log.info("Database file exists at {:s}. Loading it...".format(str(location)))
+            location = str(location.absolute())
+            __log.info("Database file exists at {:s}. Loading it...".format(location))
+
     elif location == ":memory:":
         __log.info("Database will be instantiated in memory.")
 
