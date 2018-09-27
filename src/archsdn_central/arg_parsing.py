@@ -63,10 +63,10 @@ def parse_arguments():
     parser.add_argument("-p", "--port", help="Central Server Port (default: %(default)s)", type=int, default=12345)
     parser.add_argument("-s", "--storage", help="SQLite3 Database Location (default: ./%(default)s)",
                         type=validate_path, default=':memory:')
-    parser.add_argument("-4net", "--ipv4network", help="IPv4 Network for Hosts (default: ./%(default)s)",
+    parser.add_argument("-4net", "--ipv4network", help="IPv4 Network for Hosts (default: %(default)s)",
                         type=validate_ipv4network, default="10.0.0.0/8")
     parser.add_argument("-6net", "--ipv6network",
-                        help="IPv6 Network for Hosts (default (archsdn in hex): ./%(default)s)",
+                        help="IPv6 Network for Hosts (default (archsdn in hex): %(default)s)",
                         type=validate_ipv6network,
                         default="fd61:7263:6873:646e::0/64")  # 61:7263:6873:646e -> archsdn in hex
 
