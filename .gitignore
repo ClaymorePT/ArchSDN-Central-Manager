@@ -1,8 +1,10 @@
 # By default, ignore everything...
 /*
+**__pycache__/
 
 # ... except these directories
 !/src/
+!/.circleci/
 
 # ... except these specific files
 !/.gitignore
