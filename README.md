@@ -1,7 +1,5 @@
 # ArchSDN Central Manager
 
-[![CircleCI](https://circleci.com/gh/ClaymorePT/ArchSDN-Central-Manager.svg?style=svg)](https://circleci.com/gh/ClaymorePT/ArchSDN-Central-Manager)
-
 ### Introduction
 
 This is the source code for the ArchSDN Central Manager.

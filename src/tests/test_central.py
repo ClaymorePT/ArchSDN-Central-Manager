@@ -33,11 +33,11 @@ database_location = Path("/tmp/test_central.sqlite3")
 def openPuppetProcess():
     if Path("../archsdn_central/main.py").exists():
         return subprocess.Popen(
-            ("python", "../archsdn_central/main.py", "-l", "CRITICAL", "-s", str(database_location))
+            ("../archsdn_central/main.py", "-l", "DEBUG", "-s", str(database_location))
         )
     if Path("./src/archsdn_central/main.py").exists():
         return subprocess.Popen(
-            ("python", "./src/archsdn_central/main.py", "-l", "CRITICAL", "-s", str(database_location))
+            ("./src/archsdn_central/main.py", "-l", "DEBUG", "-s", str(database_location))
         )
     raise SystemExit("archsdn_central.main.py not found.")
 
