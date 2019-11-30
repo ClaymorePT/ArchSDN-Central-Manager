@@ -35,6 +35,10 @@ def init_database(
         if location.exists():
             location = str(location.absolute())
             __log.info("Database file exists at {:s}. Loading it...".format(location))
+        else:
+          location = str(location.absolute())
+          __log.info("Database file does not exist. It will be created at location {:s}. Loading it...".format(location))
+
 
     elif location == ":memory:":
         __log.info("Database will be instantiated in memory.")
